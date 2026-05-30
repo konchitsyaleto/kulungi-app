@@ -18,6 +18,31 @@ const expandedMetricText = {
   charge: ["넉넉해요", "경쟁있어요", "조금 기다려야 해요"],
 };
 
+const metricDescriptions = {
+  crowd: {
+    "여유": "사람이 적은 한가로운 라운지네요. 룽지가 커피 한 잔을 즐기며 SNS에서 아깽이 사진을 보면서 힐링하기 딱 좋은 정도예요.",
+    "보통": "평소보다 조금 사람들이 많아요. 쿠와 룽지는 친해서 서로 붙어 있어도 좋지만, 유저님이 내향형 인간이라면 좀 부담스러울 수 있어요.",
+    "혼잡": "평소보다 사람이 아주 많아요. 고양이 룽지는 액체라서 쿠와 지코 사이에 갇혀도 괜찮지만, 인간 유저님은 위험할 수도 있어요.",
+  },
+  noise: {
+    "조용": "아주 조용하고 집중하기 좋은 환경이에요. 룽지는 라운지가 너무 조용한 탓에 그만 가부좌를 틀고 앉아 열반에 오르려 하고 있어요.",
+    "보통": "시끄럽지는 않지만 대화가 가능한 분위기예요. 팀플 회의를 위해 사용해도 좋고, 쿠와 룽지처럼 어제 먹은 멸치볶음에 대해 얘기해도 좋아요.",
+    "높음": "평소보다 시끄러워요. 여기가 라운지인지, 입실렌티 무대인지 헷갈린 룽지가 한껏 빼입고 그동안 갈고 닦은 디스코 실력을 뽐내고 있어요.",
+    "시끄러움": "평소보다 시끄러워요. 여기가 라운지인지, 입실렌티 무대인지 헷갈린 룽지가 한껏 빼입고 그동안 갈고 닦은 디스코 실력을 뽐내고 있어요.",
+  },
+  sit: {
+    "있음": "비어있는 자리가 많아요. 게으른 룽지가 와서 앉아버리기 전에 어서 가서 앉으세요!",
+    "조금": "조금 기다려야 할 수도 있어요. 빈자리가 없어도 룽지가 금방 일어날 수도 있으니 잠시 기다려 보는 것도 좋아요.",
+    "없음": "자리가 거의 없어요. 룽지는 낮잠을 오래 자기 때문에 일어나기를 기다리기보다는 다른 라운지로 떠나는게 나을 수 있어요.",
+    "적음": "자리가 거의 없어요. 룽지는 낮잠을 오래 자기 때문에 일어나기를 기다리기보다는 다른 라운지로 떠나는게 나을 수 있어요.",
+  },
+  charge: {
+    "넉넉": "사용하지 않는 콘센트가 많아요. 지코가 멀뚱히 서서 어제 먹은 말차 아이스크림의 맛을 떠올리고 있어요.",
+    "보통": "사용되고 있는 콘센트가 많아요. 쿠는 남은 자리를 찾기 귀찮았는지 아무 말 없이 충전기 코드를 지코에게 건내고 있어요.",
+    "적음": "거의 모든 콘센트가 사용 중이에요. 결국 쿠의 노트북은 지코가 어제 먹은 말차 아이스크림으로 충전되고 있어요.",
+  },
+};
+
 const lounges = [
   {
     id: "library-garden",
@@ -131,7 +156,7 @@ const lounges = [
     metrics: [
       { key: "crowd", label: "혼잡도", value: "혼잡", tone: "bad", detail: "현재 시험 기간 이용자가 많아 빈자리를 찾기 어려워요." },
       { key: "noise", label: "소음도", value: "조용", tone: "good", detail: "전체적으로 조용하지만 이동 인원은 많은 편이에요." },
-      { key: "sit", label: "자리 유무", value: "적음", tone: "bad", detail: "빈 좌석이 거의 없어 대기 가능성이 있어요." },
+      { key: "sit", label: "자리 유무", value: "없음", tone: "bad", detail: "빈 좌석이 거의 없어 대기 가능성이 있어요." },
       { key: "charge", label: "콘센트", value: "보통", tone: "warn", detail: "콘센트 좌석 경쟁이 높은 시간대예요." },
     ],
     details: [
@@ -402,12 +427,16 @@ function renderMetrics(lounge) {
             <span class="metric-icon">${metricIcon(metric)}</span>
             <strong>${active ? expandedText : metric.value}</strong>
             <small>${metric.label}</small>
-            <p>${metric.detail}</p>
+            <p>${metricDescription(metric)}</p>
           </button>
         `;
       }).join("")}
     </section>
   `;
+}
+
+function metricDescription(metric) {
+  return metricDescriptions[metric.key]?.[metric.value] || metric.detail;
 }
 
 function renderSeatMap() {
@@ -996,7 +1025,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=16").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=17").catch(() => {}));
 }
 
 render();
