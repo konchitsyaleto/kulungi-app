@@ -28,6 +28,7 @@ const lounges = [
     walkMinutes: 3,
     favorite: true,
     recommended: true,
+    recommendation: 94,
     status: "calm",
     statusTone: "good",
     tags: ["개인 공부", "콘센트", "조용함", "정수기", "밝음", "높은 테이블"],
@@ -57,6 +58,7 @@ const lounges = [
     walkMinutes: 5,
     favorite: false,
     recommended: true,
+    recommendation: 88,
     status: "seats",
     statusTone: "good",
     tags: ["팀플", "화이트보드", "다인석", "노트북", "콘센트", "합석 가능"],
@@ -86,6 +88,7 @@ const lounges = [
     walkMinutes: 7,
     favorite: true,
     recommended: false,
+    recommendation: 72,
     status: "normal",
     statusTone: "warn",
     tags: ["짧은 휴식", "카페 인접", "수다", "낮은 테이블", "취식 가능", "소파"],
@@ -115,6 +118,7 @@ const lounges = [
     walkMinutes: 11,
     favorite: false,
     recommended: false,
+    recommendation: 46,
     status: "busy",
     statusTone: "bad",
     tags: ["개인 공부", "조용함", "딱딱한 좌석", "콘센트", "높은 테이블"],
@@ -158,6 +162,9 @@ const state = {
   departurePeriod: "오후",
   departureHour: "2",
   departureMinute: "30",
+  departureDate: "오늘",
+  showDatePicker: false,
+  sortMode: "recommendation",
   presets: [{ name: "개인 공부", purpose: ["공부"], features: ["조용함", "콘센트"], campus: "", buildings: [], departureMode: "now" }],
   modal: null,
   activeMetric: null,
@@ -173,6 +180,7 @@ const state = {
     college: "문과대학",
     department: "국어국문학과",
     saved: false,
+    photo: "",
   },
 };
 
@@ -214,8 +222,14 @@ function filteredLounges() {
   let result = [...lounges];
   if (state.favoritesOnly) result = result.filter((lounge) => state.favorites.has(lounge.id));
   if (state.selectedBuildings.length) result = result.filter((lounge) => state.selectedBuildings.includes(lounge.building));
-  result.sort((a, b) => scoreLounge(b) - scoreLounge(a));
+  result.sort(sortLounges);
   return result;
+}
+
+function sortLounges(a, b) {
+  if (state.sortMode === "crowd") return TONE[a.statusTone] - TONE[b.statusTone] || scoreLounge(b) - scoreLounge(a);
+  if (state.sortMode === "distance") return Number(a.distance.replace(/\D/g, "")) - Number(b.distance.replace(/\D/g, ""));
+  return b.recommendation - a.recommendation || scoreLounge(b) - scoreLounge(a);
 }
 
 function scoreLounge(lounge) {
@@ -254,10 +268,11 @@ function renderHome() {
       <header class="home-header">
         <div class="brand">kulungi</div>
         <h1>${summaryTitle()}</h1>
-        <button class="search-bar" data-route="search">
-          <span>상세 검색</span>
-          ${icon("chevron")}
-        </button>
+        <div class="search-bar split-search">
+          <button class="search-main" data-route="search">상세 검색</button>
+          <button class="preset-trigger" data-modal="presets"><span>프리셋</span>${icon("chevron")}</button>
+        </div>
+        ${renderSortControls()}
       </header>
       <div class="lounge-list">
         ${loungesToShow.length ? loungesToShow.map(renderLoungeCard).join("") : `<div class="empty">조건에 맞는 라운지가 아직 없어요.</div>`}
@@ -265,6 +280,19 @@ function renderHome() {
       ${renderTabbar()}
     </section>
   `;
+}
+
+function renderSortControls() {
+  const options = [
+    ["recommendation", "추천도순"],
+    ["crowd", "혼잡도순"],
+    ["distance", "거리순"],
+  ];
+  return `<div class="sort-controls">${options.map(([value, label]) => `
+    <button class="${state.sortMode === value ? "selected" : ""}" data-sort-mode="${value}">
+      <i></i><span>${label}</span>
+    </button>
+  `).join("")}</div>`;
 }
 
 function renderLoungeCard(lounge) {
@@ -276,7 +304,10 @@ function renderLoungeCard(lounge) {
         <div class="card-info">
           <div class="card-title-row">
             <h2>${lounge.name}</h2>
-            <button class="icon-btn favorite ${isFavorite ? "active" : ""}" data-favorite="${lounge.id}" aria-label="즐겨찾기">${icon("heart")}</button>
+            <div class="card-score">
+              <button class="icon-btn favorite ${isFavorite ? "active" : ""}" data-favorite="${lounge.id}" aria-label="즐겨찾기">${icon("heart")}</button>
+              <small>${lounge.recommendation}%</small>
+            </div>
           </div>
           <p>${lounge.building} ${lounge.floor} · ${lounge.distance}</p>
           <strong class="status mark-${lounge.statusTone}">${statusText[lounge.status]}</strong>
@@ -305,9 +336,9 @@ function renderDetail() {
       <header class="detail-hero" style="background:${lounge.image}">
         <div class="top-actions">
           <button class="icon-btn glass" data-home aria-label="뒤로가기">${icon("back")}</button>
-          <div>
-            <button class="icon-btn glass nav-tilt" data-route="map" aria-label="길찾기">${icon("nav")}</button>
-            <button class="icon-btn glass favorite ${state.favorites.has(lounge.id) ? "active" : ""}" data-favorite="${lounge.id}" aria-label="즐겨찾기">${icon("heart")}</button>
+          <div class="labeled-actions">
+            <button class="action-label" data-route="map" aria-label="길찾기"><span class="icon-btn glass nav-tilt">${icon("nav")}</span><small>길찾기</small></button>
+            <button class="action-label" data-favorite="${lounge.id}" aria-label="즐겨찾기"><span class="icon-btn glass favorite ${state.favorites.has(lounge.id) ? "active" : ""}">${icon("heart")}</span><small>즐겨찾기</small></button>
           </div>
         </div>
         <div class="hero-copy">
@@ -403,9 +434,9 @@ function renderSearch() {
     <section class="screen search-screen">
       <header class="plain-header">
         <button class="icon-btn" data-home aria-label="뒤로가기">${icon("back")}</button>
-        <div>
-          <button class="icon-btn" data-modal="presets" aria-label="프리셋 보기">${icon("star")}</button>
-          <button class="icon-btn" data-modal="save" aria-label="프리셋 저장">${icon("plus")}</button>
+        <div class="labeled-actions">
+          <button class="action-label" data-modal="presets" aria-label="프리셋 보기"><span class="icon-btn">${icon("star")}</span><small>프리셋</small></button>
+          <button class="action-label" data-modal="save" aria-label="프리셋 저장"><span class="icon-btn">${icon("plus")}</span><small>저장</small></button>
         </div>
       </header>
       <div class="filter-stack">
@@ -431,6 +462,8 @@ function renderSearch() {
               ["later", "나중에"],
             ].map(([value, label]) => `<button class="${state.departureMode === value ? "selected" : ""}" data-departure-mode="${value}">${label}</button>`).join("")}
           </div>
+          ${state.departureMode === "later" ? `<button class="date-toggle" data-toggle-date-picker>다른 날짜에 사용해요</button>` : ""}
+          ${state.departureMode === "later" && state.showDatePicker ? renderDatePicker() : ""}
           ${state.departureMode !== "now" ? renderTimePicker() : ""}
         </section>
       </div>
@@ -439,6 +472,17 @@ function renderSearch() {
         <button class="primary" data-home>결과 보기</button>
       </div>
     </section>
+  `;
+}
+
+function renderDatePicker() {
+  return `
+    <label class="date-picker">
+      <span>사용 날짜</span>
+      <select data-date-select>
+        ${["오늘", "내일", "모레", "다음 주 월요일", "다음 주 화요일", "다음 주 수요일"].map((date) => `<option ${state.departureDate === date ? "selected" : ""}>${date}</option>`).join("")}
+      </select>
+    </label>
   `;
 }
 
@@ -497,7 +541,7 @@ function renderProfile() {
   return `
     <section class="screen with-tabbar profile-screen">
       <header class="profile-header">
-        <img class="avatar-img" src="./_256/lungi_256.png" alt="" />
+        ${profilePhoto("avatar-img")}
         <h1>${state.profile.name}님</h1>
         <p>오늘도 딱 맞는 라운지를 찾아볼게요.</p>
       </header>
@@ -549,7 +593,9 @@ function renderProfileEdit() {
   return `
     <section class="subpage-stack">
       <div class="profile-edit-card">
-        <img src="./_256/lungi_256.png" alt="" />
+        ${profilePhoto("edit-avatar")}
+        <button class="profile-photo-button" data-profile-photo>프로필 변경</button>
+        <input class="visually-hidden" type="file" accept="image/*" data-profile-photo-input />
         <label>사용자 이름<input data-profile-field="name" value="${state.profile.name}" /></label>
         <label>소속대학<select data-profile-field="college">${["문과대학", "경영대학", "공과대학"].map((college) => `<option ${state.profile.college === college ? "selected" : ""}>${college}</option>`).join("")}</select></label>
         <label>학과<select data-profile-field="department">${["국어국문학과", "경영학과", "컴퓨터학과"].map((department) => `<option ${state.profile.department === department ? "selected" : ""}>${department}</option>`).join("")}</select></label>
@@ -557,6 +603,11 @@ function renderProfileEdit() {
       </div>
     </section>
   `;
+}
+
+function profilePhoto(className) {
+  if (state.profile.photo) return `<img class="${className}" src="${state.profile.photo}" alt="" />`;
+  return `<div class="${className} profile-placeholder" aria-label="기본 프로필">${icon("user")}</div>`;
 }
 
 function renderNotificationSettings() {
@@ -685,6 +736,7 @@ function bindEvents() {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       state.route = "home";
+      state.favoritesOnly = false;
       state.profilePage = "";
       state.activeMetric = null;
       render();
@@ -710,6 +762,12 @@ function bindEvents() {
     state.route = "home";
     render();
   });
+  document.querySelectorAll("[data-sort-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.sortMode = button.dataset.sortMode;
+      render();
+    });
+  });
   document.querySelectorAll("[data-metric]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeMetric = state.activeMetric === button.dataset.metric ? null : button.dataset.metric;
@@ -733,8 +791,17 @@ function bindEvents() {
   document.querySelectorAll("[data-departure-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       state.departureMode = button.dataset.departureMode;
+      if (state.departureMode !== "later") state.showDatePicker = false;
       render();
     });
+  });
+  document.querySelector("[data-toggle-date-picker]")?.addEventListener("click", () => {
+    state.showDatePicker = !state.showDatePicker;
+    render();
+  });
+  document.querySelector("[data-date-select]")?.addEventListener("change", (event) => {
+    state.departureDate = event.currentTarget.value;
+    render();
   });
   document.querySelectorAll("[data-time-value]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -757,8 +824,26 @@ function bindEvents() {
       state.profile.saved = true;
       render();
     };
+    field.addEventListener("input", () => {
+      state.profile[field.dataset.profileField] = field.value;
+      state.profile.saved = true;
+    });
     field.addEventListener("change", updateProfile);
     field.addEventListener("blur", updateProfile);
+  });
+  document.querySelector("[data-profile-photo]")?.addEventListener("click", () => {
+    document.querySelector("[data-profile-photo-input]")?.click();
+  });
+  document.querySelector("[data-profile-photo-input]")?.addEventListener("change", (event) => {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      state.profile.photo = reader.result;
+      state.profile.saved = true;
+      render();
+    });
+    reader.readAsDataURL(file);
   });
   document.querySelector("[data-reset-filters]")?.addEventListener("click", () => {
     state.selectedPurpose = [];
@@ -766,6 +851,7 @@ function bindEvents() {
     state.selectedCampus = "";
     state.selectedBuildings = [];
     state.departureMode = "now";
+    state.showDatePicker = false;
     render();
   });
   document.querySelectorAll("[data-modal]").forEach((button) => {
@@ -851,12 +937,12 @@ function toggleChip(type, value) {
   };
   const key = listMap[type];
   if (!key) return;
-  state[key] = state[key].includes(value) ? state[key].filter((item) => item !== value) : [value, ...state[key]];
+  state[key] = state[key].includes(value) ? state[key].filter((item) => item !== value) : [...state[key], value];
   render();
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=11").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=12").catch(() => {}));
 }
 
 render();

@@ -1287,3 +1287,382 @@ p {
 .avatar-img {
   background: transparent;
 }
+
+/* Rounded medium-weight pass */
+html,
+body {
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.brand,
+.home-header h1,
+.filter-panel h1,
+.card-title-row h2,
+.hero-copy h1,
+.panel h2,
+.filter-panel h2,
+.plain-header h1,
+.profile-header h1,
+.mascot-card h2,
+.settings-list strong,
+.info-panel dt,
+.primary,
+.secondary {
+  font-weight: 700;
+}
+
+.search-bar,
+.tags span,
+.chip,
+.recommend-tail,
+.route-callout,
+.departure-tabs button,
+.profile-edit-card label,
+.toggle-row,
+.text-card,
+.preset-list button,
+.legend,
+.info-panel dd,
+.profile-header p,
+.card-info p,
+.status,
+.metric-card strong,
+.metric-card p,
+.metric-card small,
+.wheel-options button,
+.autosave-note,
+.mascot-card p {
+  font-weight: 500;
+}
+
+.screen,
+.phone-shell,
+.filter-panel,
+.home-header {
+  background: #ffffff;
+}
+
+.lounge-card,
+.panel,
+.settings-list button,
+.profile-edit-card,
+.text-card,
+.mascot-card,
+.toggle-row,
+.route-summary,
+.modal-card,
+.preset-list button,
+.time-picker,
+.metric-card,
+.empty {
+  border: 1px solid rgba(145, 163, 176, 0.18);
+  border-radius: 20px;
+  box-shadow: 0 12px 32px rgba(29, 29, 31, 0.08);
+  background: #ffffff;
+}
+
+.lounge-card {
+  border-radius: 22px;
+}
+
+.thumb,
+.seat-map,
+.wheel-column,
+.profile-edit-card input,
+.profile-edit-card select,
+.mock-map {
+  border-radius: 16px;
+}
+
+.split-search {
+  gap: 8px;
+  padding: 4px;
+  height: 46px;
+  background: #f5f6f8;
+  box-shadow: inset 0 0 0 1px rgba(145, 163, 176, 0.18);
+}
+
+.search-main,
+.preset-trigger {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.search-main {
+  flex: 1;
+  padding: 0 16px;
+}
+
+.preset-trigger {
+  flex: 0 0 auto;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 10px 0 12px;
+  background: #ffffff;
+  color: var(--accent);
+  box-shadow: 0 4px 14px rgba(29, 29, 31, 0.08);
+}
+
+.preset-trigger svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sort-controls {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  padding-left: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sort-controls::-webkit-scrollbar {
+  display: none;
+}
+
+.sort-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #91A3B0;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sort-controls i {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+}
+
+.sort-controls button.selected {
+  color: var(--ink);
+}
+
+.sort-controls button.selected i {
+  border-color: var(--accent);
+  background: radial-gradient(circle at center, var(--accent) 0 44%, transparent 47%);
+}
+
+.card-title-row {
+  align-items: start;
+}
+
+.card-score {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  margin-top: -5px;
+}
+
+.card-score small {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.card-score .icon-btn {
+  width: 36px;
+  height: 34px;
+}
+
+.recommend-tail {
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 9px 22px rgba(29, 29, 31, 0.06);
+}
+
+.tabbar {
+  background: rgba(245, 246, 248, 0.88);
+  box-shadow: 0 14px 38px rgba(29, 29, 31, 0.16);
+  backdrop-filter: blur(18px);
+}
+
+.tabbar button.active:not(.favorite-tab) {
+  box-shadow: 0 4px 14px rgba(29, 29, 31, 0.08);
+}
+
+.top-actions > .labeled-actions,
+.plain-header > .labeled-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.action-label {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.action-label small {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.icon-btn {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 5px 16px rgba(29, 29, 31, 0.1);
+}
+
+.plain-header .icon-btn {
+  box-shadow: none;
+  background: transparent;
+}
+
+.metric-card {
+  border-radius: 18px;
+}
+
+.metric-icon {
+  width: 70px;
+  height: 70px;
+}
+
+.metric-icon img {
+  width: 66px;
+  height: 66px;
+}
+
+.metric-card small {
+  font-size: 11px;
+}
+
+.metric-section.expanded .metric-card.active {
+  border-radius: 20px;
+}
+
+.metric-section.expanded .metric-card.active .metric-icon {
+  width: 116px;
+  height: 116px;
+}
+
+.metric-section.expanded .metric-card.active .metric-icon img {
+  width: 110px;
+  height: 110px;
+}
+
+.route-callout,
+.primary,
+.secondary,
+.modal-card input,
+.preset-list button,
+.profile-edit-card input,
+.profile-edit-card select,
+.route-summary,
+.empty {
+  border-radius: 16px;
+}
+
+.chip.selected {
+  order: initial;
+  color: var(--white);
+  background: var(--accent);
+}
+
+.departure-tabs button.selected {
+  order: initial;
+  color: var(--white);
+  background: var(--accent);
+}
+
+.date-toggle {
+  margin-top: 12px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.date-picker {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #f5f6f8;
+}
+
+.date-picker span {
+  color: var(--soft-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.date-picker select {
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  padding: 0 10px;
+  background: #ffffff;
+  font-weight: 600;
+}
+
+.profile-header {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.avatar-img,
+.edit-avatar {
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  background: #f5f6f8;
+  color: #91A3B0;
+  border-radius: 50%;
+  border: 1px solid rgba(145, 163, 176, 0.28);
+}
+
+.avatar-img {
+  width: 86px;
+  height: 86px;
+}
+
+.edit-avatar {
+  width: 116px;
+  height: 116px;
+  justify-self: center;
+}
+
+.profile-placeholder svg {
+  width: 38px;
+  height: 38px;
+}
+
+.edit-avatar.profile-placeholder svg {
+  width: 48px;
+  height: 48px;
+}
+
+.profile-photo-button {
+  justify-self: center;
+  margin-top: -4px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
