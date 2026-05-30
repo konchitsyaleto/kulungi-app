@@ -1800,18 +1800,22 @@ body {
 }
 
 .metric-section.expanded {
-  align-items: start;
+  height: clamp(276px, calc(100vw - 114px), 316px);
+  align-items: stretch;
 }
 
 .metric-section.expanded .metric-card {
   flex: 0 0 22px;
   width: 22px;
-  min-height: 300px;
+  min-height: 0;
+  height: 100%;
 }
 
 .metric-section.expanded .metric-card.active {
-  flex: 1 1 auto;
-  aspect-ratio: 1 / 1;
+  flex: 0 0 clamp(276px, calc(100vw - 114px), 316px);
+  width: clamp(276px, calc(100vw - 114px), 316px);
+  height: 100%;
+  aspect-ratio: auto;
   min-height: 0;
   max-height: 360px;
   padding: 18px;
@@ -1902,19 +1906,19 @@ body {
 .lounge-card {
   grid-template-columns: 116px minmax(0, 1fr);
   gap: 13px;
-  min-height: 154px;
+  min-height: 156px;
   padding: 12px;
   overflow: hidden;
 }
 
 .thumb {
   width: 116px;
-  height: 130px;
+  height: 132px;
   align-self: stretch;
 }
 
 .card-info {
-  min-height: 130px;
+  height: 132px;
   display: grid;
   grid-template-rows: auto auto auto 1fr;
   align-content: start;
@@ -1938,7 +1942,7 @@ body {
   margin-top: 0;
   display: grid;
   justify-items: center;
-  gap: 4px;
+  gap: 10px;
 }
 
 .card-score .icon-btn {
@@ -1963,8 +1967,9 @@ body {
 }
 
 .card-info p {
-  margin-top: 1px;
+  margin-top: 0;
   font-size: 13px;
+  line-height: 1.18;
 }
 
 .status {
@@ -1977,11 +1982,12 @@ body {
 .scroll-tags {
   display: flex;
   flex-wrap: wrap;
-  align-content: start;
+  align-content: end;
+  align-self: end;
   gap: 5px 5px;
   max-width: 100%;
-  max-height: 57px;
-  margin-top: 7px;
+  max-height: 52px;
+  margin-top: 0;
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 0;
@@ -1989,22 +1995,23 @@ body {
 
 .tags span {
   min-height: 0;
-  padding: 5px 9px;
+  padding: 4px 8px;
   font-size: 12px;
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
 .recommend-tail {
   width: 100%;
-  margin: -14px 0 0;
-  min-height: 48px;
-  padding-top: 20px;
+  margin: -28px 0 0;
+  min-height: 64px;
+  padding-top: 36px;
   border-radius: 0 0 22px 22px;
   box-shadow: none;
 }
 
 .sort-controls i {
-  display: inline-block;
+  display: inline-grid;
+  place-items: center;
   width: 14px;
   height: 14px;
   border: 0;
@@ -2015,9 +2022,19 @@ body {
   transform: none;
 }
 
+.sort-controls i::before {
+  content: "✓";
+  color: #91A3B0;
+  transform: none;
+}
+
 .sort-controls button.selected i {
   color: var(--accent);
   background: transparent;
+}
+
+.sort-controls button.selected i::before {
+  color: var(--accent);
 }
 
 @media (max-width: 370px) {

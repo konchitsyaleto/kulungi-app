@@ -323,7 +323,7 @@ function renderSortControls() {
   ];
   return `<div class="sort-controls">${options.map(([value, label]) => `
     <button class="${state.sortMode === value ? "selected" : ""}" data-sort-mode="${value}">
-      <i>${state.sortMode === value ? "✓" : ""}</i><span>${label}</span>
+      <i></i><span>${label}</span>
     </button>
   `).join("")}</div>`;
 }
@@ -996,7 +996,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=15").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=16").catch(() => {}));
 }
 
 render();
