@@ -1893,3 +1893,131 @@ body {
     height: 126px;
   }
 }
+
+/* Home card refinement */
+.lounge-card-wrap {
+  display: grid;
+}
+
+.lounge-card {
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 13px;
+  min-height: 174px;
+  padding: 13px;
+  overflow: hidden;
+}
+
+.thumb {
+  width: 116px;
+  height: 148px;
+  align-self: stretch;
+}
+
+.card-info {
+  min-height: 148px;
+  display: grid;
+  grid-template-rows: auto auto auto auto 1fr;
+  align-content: start;
+  padding-right: 0;
+}
+
+.card-title-row {
+  position: relative;
+  min-height: 38px;
+  padding-right: 40px;
+}
+
+.card-title-row h2 {
+  width: 100%;
+}
+
+.card-score {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-top: 0;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.card-score .icon-btn {
+  width: 34px;
+  height: 30px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.card-score .icon-btn svg {
+  width: 27px;
+  height: 27px;
+}
+
+.card-score small {
+  min-width: 42px;
+  text-align: center;
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.scroll-tags {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, 32px);
+  grid-auto-columns: max-content;
+  align-items: start;
+  gap: 7px 7px;
+  max-width: 100%;
+  min-height: 71px;
+  margin-top: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0;
+}
+
+.tags span {
+  min-height: 30px;
+  padding: 7px 11px;
+}
+
+.recommend-tail {
+  width: 100%;
+  margin: -10px 0 0;
+  min-height: 40px;
+  border-radius: 0 0 22px 22px;
+  box-shadow: none;
+}
+
+.sort-controls i {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1.8px solid currentColor;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.sort-controls button.selected i {
+  color: #ffffff;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+@media (max-width: 370px) {
+  .lounge-card {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+
+  .thumb {
+    width: 104px;
+  }
+
+  .card-score small {
+    font-size: 14px;
+  }
+}
