@@ -1902,28 +1902,28 @@ body {
 .lounge-card {
   grid-template-columns: 116px minmax(0, 1fr);
   gap: 13px;
-  min-height: 174px;
-  padding: 13px;
+  min-height: 154px;
+  padding: 12px;
   overflow: hidden;
 }
 
 .thumb {
   width: 116px;
-  height: 148px;
+  height: 130px;
   align-self: stretch;
 }
 
 .card-info {
-  min-height: 148px;
+  min-height: 130px;
   display: grid;
-  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   align-content: start;
   padding-right: 0;
 }
 
 .card-title-row {
   position: relative;
-  min-height: 38px;
+  min-height: 25px;
   padding-right: 40px;
 }
 
@@ -1934,11 +1934,11 @@ body {
 .card-score {
   position: absolute;
   top: 0;
-  right: 0;
+  right: 1px;
   margin-top: 0;
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .card-score .icon-btn {
@@ -1954,58 +1954,70 @@ body {
 }
 
 .card-score small {
-  min-width: 42px;
+  width: 34px;
   text-align: center;
   color: var(--accent);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   line-height: 1;
 }
 
+.card-info p {
+  margin-top: 1px;
+  font-size: 13px;
+}
+
+.status {
+  justify-self: start;
+  width: fit-content;
+  margin-top: 5px;
+  font-size: 15px;
+}
+
 .scroll-tags {
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(2, 32px);
-  grid-auto-columns: max-content;
-  align-items: start;
-  gap: 7px 7px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: start;
+  gap: 5px 5px;
   max-width: 100%;
-  min-height: 71px;
-  margin-top: 10px;
+  max-height: 57px;
+  margin-top: 7px;
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 0;
 }
 
 .tags span {
-  min-height: 30px;
-  padding: 7px 11px;
+  min-height: 0;
+  padding: 5px 9px;
+  font-size: 12px;
+  line-height: 1.15;
 }
 
 .recommend-tail {
   width: 100%;
-  margin: -10px 0 0;
-  min-height: 40px;
+  margin: -14px 0 0;
+  min-height: 48px;
+  padding-top: 20px;
   border-radius: 0 0 22px 22px;
   box-shadow: none;
 }
 
 .sort-controls i {
-  display: inline-grid;
-  place-items: center;
-  width: 15px;
-  height: 15px;
-  border-radius: 4px;
-  border: 1.8px solid currentColor;
-  font-size: 11px;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1;
+  font-style: normal;
+  transform: none;
 }
 
 .sort-controls button.selected i {
-  color: #ffffff;
-  border-color: var(--accent);
-  background: var(--accent);
+  color: var(--accent);
+  background: transparent;
 }
 
 @media (max-width: 370px) {
