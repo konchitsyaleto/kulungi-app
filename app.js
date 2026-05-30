@@ -29,6 +29,7 @@ const lounges = [
     favorite: true,
     recommended: true,
     recommendation: 94,
+    heroTone: "dark",
     status: "calm",
     statusTone: "good",
     tags: ["개인 공부", "콘센트", "조용함", "정수기", "밝음", "높은 테이블"],
@@ -59,6 +60,7 @@ const lounges = [
     favorite: false,
     recommended: true,
     recommendation: 88,
+    heroTone: "dark",
     status: "seats",
     statusTone: "good",
     tags: ["팀플", "화이트보드", "다인석", "노트북", "콘센트", "합석 가능"],
@@ -89,6 +91,7 @@ const lounges = [
     favorite: true,
     recommended: false,
     recommendation: 72,
+    heroTone: "dark",
     status: "normal",
     statusTone: "warn",
     tags: ["짧은 휴식", "카페 인접", "수다", "낮은 테이블", "취식 가능", "소파"],
@@ -119,6 +122,7 @@ const lounges = [
     favorite: false,
     recommended: false,
     recommendation: 46,
+    heroTone: "dark",
     status: "busy",
     statusTone: "bad",
     tags: ["개인 공부", "조용함", "딱딱한 좌석", "콘센트", "높은 테이블"],
@@ -251,6 +255,7 @@ function render() {
   app.innerHTML = `<main class="phone-shell">${views[state.route]()}</main>${renderModal()}`;
   bindEvents();
   alignTimePicker();
+  adjustHeroTone();
   if (routeChanged) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   lastRenderedRoute = state.route;
 }
@@ -259,6 +264,34 @@ function alignTimePicker() {
   requestAnimationFrame(() => {
     document.querySelectorAll(".wheel-options").forEach((column) => column.querySelector(".selected")?.scrollIntoView({ block: "center" }));
   });
+}
+
+function adjustHeroTone() {
+  const hero = document.querySelector(".detail-hero");
+  if (!hero) return;
+  const lounge = getSelectedLounge();
+  const urlMatch = lounge.image.match(/url\((['"]?)(.*?)\1\)/);
+  if (!urlMatch) return;
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.addEventListener("load", () => {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    canvas.width = 24;
+    canvas.height = 24;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let luminance = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      luminance += pixels[index] * 0.299 + pixels[index + 1] * 0.587 + pixels[index + 2] * 0.114;
+    }
+    const average = luminance / (pixels.length / 4);
+    hero.classList.toggle("hero-tone-light", average < 132);
+    hero.classList.toggle("hero-tone-dark", average >= 132);
+  });
+  image.addEventListener("error", () => {});
+  image.src = urlMatch[2];
 }
 
 function renderHome() {
@@ -333,7 +366,8 @@ function renderDetail() {
   const lounge = getSelectedLounge();
   return `
     <section class="screen detail-screen">
-      <header class="detail-hero" style="background:${lounge.image}">
+      <header class="detail-hero hero-tone-${lounge.heroTone || "dark"}">
+        <div class="hero-bg" style="background:${lounge.image}"></div>
         <div class="top-actions">
           <button class="icon-btn glass" data-home aria-label="뒤로가기">${icon("back")}</button>
           <div class="labeled-actions">
@@ -476,14 +510,34 @@ function renderSearch() {
 }
 
 function renderDatePicker() {
+  const dateOptions = buildDateOptions();
+  const selectedDate = dateOptions.some((option) => option.value === state.departureDate) ? state.departureDate : dateOptions[0].value;
   return `
     <label class="date-picker">
       <span>사용 날짜</span>
       <select data-date-select>
-        ${["오늘", "내일", "모레", "다음 주 월요일", "다음 주 화요일", "다음 주 수요일"].map((date) => `<option ${state.departureDate === date ? "selected" : ""}>${date}</option>`).join("")}
+        ${dateOptions.map(({ value, label }) => `<option value="${value}" ${selectedDate === value ? "selected" : ""}>${label}</option>`).join("")}
       </select>
     </label>
   `;
+}
+
+function buildDateOptions() {
+  const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+  return Array.from({ length: 15 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+    const prefix = index === 0 ? "오늘" : index === 1 ? "내일" : `${dayNames[date.getDay()]}요일`;
+    const formatted = `${date.getMonth() + 1}월 ${date.getDate()}일`;
+    return { value: formatDateValue(date), label: `${prefix} (${formatted})` };
+  });
+}
+
+function formatDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function renderTimePicker() {
@@ -942,7 +996,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=12").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=13").catch(() => {}));
 }
 
 render();
