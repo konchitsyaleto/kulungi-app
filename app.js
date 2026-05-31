@@ -171,6 +171,7 @@ let lounges = [
 ];
 
 const purposeOptions = ["공부", "팀플", "짧은 휴식", "잠", "취식", "수다", "노트북 사용"];
+const partyOptions = ["혼자", "둘이", "서너명", "다섯명 이상"];
 const featureOptions = ["밝음", "어두움", "조용함", "딱딱한 좌석", "소파", "낮은 테이블", "높은 테이블", "다인석", "콘센트", "프린터", "정수기", "합석 가능", "취식 가능"];
 
 if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
@@ -182,6 +183,7 @@ const state = {
   favoritesOnly: false,
   favorites: new Set(lounges.filter((lounge) => lounge.favorite).map((lounge) => lounge.id)),
   selectedPurpose: [],
+  selectedParty: "",
   selectedFeatures: [],
   selectedCampus: "",
   selectedBuildings: [],
@@ -274,7 +276,8 @@ function scoreLounge(lounge) {
   const environmentFit = 0.3 * noiseFit + 0.25 * brightnessFit + 0.25 * (1 - congestion) + 0.2 * (1 - congestion);
   const favorite = state.favorites.has(lounge.id) ? 1 : 0;
   const hardPenalty = requiredConditionFit(lounge) < 0.5 ? 0.25 : 1;
-  return 100 * (0.3 * availability + 0.25 * purposeFit + 0.15 * distanceScore + 0.15 * userPreference + 0.1 * environmentFit + 0.05 * favorite) * hardPenalty;
+  const partyFit = partyFitScore(lounge);
+  return 100 * (0.28 * availability + 0.24 * purposeFit + 0.14 * distanceScore + 0.14 * userPreference + 0.1 * environmentFit + 0.05 * favorite + 0.05 * partyFit) * hardPenalty;
 }
 
 function purposeFitScore(lounge) {
@@ -307,6 +310,17 @@ function requiredConditionFit(lounge) {
   if (state.selectedFeatures.includes("조용함")) required.push(quietness(lounge) > 0.55);
   if (!required.length) return 1;
   return required.filter(Boolean).length / required.length;
+}
+
+function partyFitScore(lounge) {
+  if (!state.selectedParty) return 0.65;
+  const tableText = `${lounge.tableTypes.join(" ")} ${lounge.raw.default_type || ""}`;
+  const groupSeat = /4인|6인|다인|큰|소파|계단|테이블/.test(tableText);
+  if (state.selectedParty === "혼자") return /1인|개인|독립|벽면/.test(tableText) ? 1 : 0.65;
+  if (state.selectedParty === "둘이") return /2인|4인|테이블|소파/.test(tableText) ? 1 : 0.55;
+  if (state.selectedParty === "서너명") return groupSeat ? 1 : 0.35;
+  if (state.selectedParty === "다섯명 이상") return /6인|다인|계단|큰|소파/.test(tableText) ? 1 : 0.25;
+  return 0.65;
 }
 
 function selectedFeaturesFit(lounge) {
@@ -702,12 +716,12 @@ function renderSeatMap(lounge) {
     return `
       <section class="panel">
         <h2>좌석도</h2>
-        <div class="seat-plan" data-seating-plan="${lounge.code}" data-crowd="${lounge.currentCrowd}">
+        <div class="seat-plan" data-seating-plan="${lounge.code}" data-crowd="${lounge.currentCrowd}" data-open-seat-plan>
           <canvas aria-label="${lounge.name} 좌석도"></canvas>
           <div class="seat-plan-loading">좌석도를 불러오는 중이에요</div>
         </div>
         <div class="legend"><span class="good"></span> 사용 가능 <span class="warn"></span> 제한 <span class="bad"></span> 사용 중</div>
-        <p class="seat-plan-note">현재는 의자 이미지에서 좌석 위치를 자동 감지하고, 임시 점유율로 테이블과 콘센트 상태를 함께 추정해 보여줍니다.</p>
+        <p class="seat-plan-note">일부 의자와 테이블은 비어있더라도 사용이 제한될 수 있어요.</p>
       </section>
     `;
   }
@@ -767,9 +781,9 @@ async function renderImageSeatPlan(container, canvas) {
   const chairStates = chairs.map((chair, index) => ({ ...chair, state: pseudoOccupancy(index, crowd) }));
   const tableStates = tables.map((table) => ({ ...table, state: aggregateState(nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45)) }));
   const outletStates = outlets.map((outlet) => ({ ...outlet, state: aggregateState(nearestBoxes(outlet, chairStates, 90)) }));
-  drawBoxes(context, tableStates, "table");
-  drawBoxes(context, outletStates, "outlet");
-  drawBoxes(context, chairStates, "chair");
+  tintLayer(context, tablesImage, tableStates, width, height);
+  tintLayer(context, outletsImage, outletStates, width, height);
+  tintLayer(context, chairsImage, chairStates, width, height);
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
   if (loading) loading.textContent = `${chairStates.length}개 좌석을 감지했어요`;
@@ -855,29 +869,39 @@ function aggregateState(boxes) {
   return "good";
 }
 
-function drawBoxes(context, boxes, type) {
+function tintLayer(targetContext, image, boxes, width, height) {
+  const source = document.createElement("canvas");
+  source.width = width;
+  source.height = height;
+  const sourceContext = source.getContext("2d", { willReadFrequently: true });
+  sourceContext.drawImage(image, 0, 0);
+  const imageData = sourceContext.getImageData(0, 0, width, height);
+  const data = imageData.data;
   boxes.forEach((box) => {
-    const color = type === "table" ? "rgba(12, 12, 12, 0.16)" : stateColor(box.state);
-    context.fillStyle = color;
-    context.strokeStyle = type === "table" ? stateColor(box.state) : "#0C0C0C";
-    context.lineWidth = type === "outlet" ? 2 : 1.5;
-    roundRect(context, box.x, box.y, box.w, box.h, type === "outlet" ? 3 : 5);
-    context.fill();
-    context.stroke();
-    if (type === "outlet") {
-      context.fillStyle = "#0C0C0C";
-      context.font = "bold 10px Pretendard, sans-serif";
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText("E", box.cx, box.cy);
+    const [r, g, b] = hexToRgb(stateColor(box.state));
+    for (let y = Math.max(0, box.y); y < Math.min(height, box.y + box.h); y += 1) {
+      for (let x = Math.max(0, box.x); x < Math.min(width, box.x + box.w); x += 1) {
+        const offset = (y * width + x) * 4;
+        if (data[offset + 3] < 20) continue;
+        data[offset] = r;
+        data[offset + 1] = g;
+        data[offset + 2] = b;
+      }
     }
   });
+  sourceContext.putImageData(imageData, 0, 0);
+  targetContext.drawImage(source, 0, 0);
 }
 
 function stateColor(state) {
   if (state === "bad") return "#ffb3ba";
   if (state === "warn") return "#ffffba";
   return "#baffc9";
+}
+
+function hexToRgb(hex) {
+  const clean = hex.replace("#", "");
+  return [0, 2, 4].map((start) => parseInt(clean.slice(start, start + 2), 16));
 }
 
 function roundRect(context, x, y, width, height, radius) {
@@ -990,6 +1014,10 @@ function renderSearch() {
         <section class="filter-panel">
           <h1>어떤 목적으로<br />라운지를 찾고 계신가요?</h1>
           <div class="chip-grid">${purposeOptions.map((item) => chip(item, "purpose")).join("")}</div>
+        </section>
+        <section class="filter-panel">
+          <h2>몇 명이 사용하나요?</h2>
+          <div class="chip-grid">${partyOptions.map((item) => `<button class="chip ${state.selectedParty === item ? "selected" : ""}" data-party="${item}">${item}</button>`).join("")}</div>
         </section>
         <section class="filter-panel">
           <h2>어떤 요소가 필요하신가요?</h2>
@@ -1263,6 +1291,25 @@ function renderMap() {
 
 function renderModal() {
   if (!state.modal) return "";
+  if (state.modal === "seatPlan") {
+    const lounge = getSelectedLounge();
+    return `
+      <div class="modal-backdrop">
+        <div class="modal-card seat-plan-modal">
+          <div class="modal-title-row">
+            <h2>${lounge.name} 좌석도</h2>
+            <button class="icon-btn" data-close-modal aria-label="닫기">${icon("plus")}</button>
+          </div>
+          <div class="seat-plan enlarged" data-seating-plan="${lounge.code}" data-crowd="${lounge.currentCrowd}">
+            <canvas aria-label="${lounge.name} 확대 좌석도"></canvas>
+            <div class="seat-plan-loading">좌석도를 불러오는 중이에요</div>
+          </div>
+          <div class="legend"><span class="good"></span> 사용 가능 <span class="warn"></span> 제한 <span class="bad"></span> 사용 중</div>
+          <p class="seat-plan-note">일부 의자와 테이블은 비어있더라도 사용이 제한될 수 있어요.</p>
+        </div>
+      </div>
+    `;
+  }
   if (state.modal === "save") {
     return `
       <div class="modal-backdrop">
@@ -1348,6 +1395,12 @@ function bindEvents() {
   document.querySelectorAll("[data-chip]").forEach((button) => {
     button.addEventListener("click", () => toggleChip(button.dataset.chipType, button.dataset.chip));
   });
+  document.querySelectorAll("[data-party]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedParty = state.selectedParty === button.dataset.party ? "" : button.dataset.party;
+      render();
+    });
+  });
   document.querySelectorAll("[data-campus]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedCampus = state.selectedCampus === button.dataset.campus ? "" : button.dataset.campus;
@@ -1414,6 +1467,7 @@ function bindEvents() {
   });
   document.querySelector("[data-reset-filters]")?.addEventListener("click", () => {
     state.selectedPurpose = [];
+    state.selectedParty = "";
     state.selectedFeatures = [];
     state.selectedCampus = "";
     state.selectedBuildings = [];
@@ -1427,6 +1481,12 @@ function bindEvents() {
       render();
     });
   });
+  document.querySelectorAll("[data-open-seat-plan]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.modal = "seatPlan";
+      render();
+    });
+  });
   document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", () => {
       state.modal = null;
@@ -1437,7 +1497,7 @@ function bindEvents() {
     event.preventDefault();
     const name = new FormData(event.currentTarget).get("presetName")?.toString().trim();
     if (name) {
-      state.presets.push({ name, purpose: [...state.selectedPurpose], features: [...state.selectedFeatures], campus: state.selectedCampus, buildings: [...state.selectedBuildings], departureMode: state.departureMode });
+      state.presets.push({ name, purpose: [...state.selectedPurpose], party: state.selectedParty, features: [...state.selectedFeatures], campus: state.selectedCampus, buildings: [...state.selectedBuildings], departureMode: state.departureMode });
     }
     state.modal = null;
     render();
@@ -1447,6 +1507,7 @@ function bindEvents() {
       const preset = state.presets[Number(button.dataset.preset)];
       Object.assign(state, {
         selectedPurpose: [...preset.purpose],
+        selectedParty: preset.party || "",
         selectedFeatures: [...preset.features],
         selectedCampus: preset.campus,
         selectedBuildings: [...preset.buildings],
@@ -1509,7 +1570,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=19").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=20").catch(() => {}));
 }
 
 render();

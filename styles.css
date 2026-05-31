@@ -627,6 +627,7 @@ p {
     linear-gradient(rgba(12,12,12,.05) 1px, transparent 1px) 0 0 / 40px 40px,
     #ffffff;
   overflow: hidden;
+  cursor: zoom-in;
 }
 
 .seat-plan canvas {
@@ -661,6 +662,33 @@ p {
   font-size: 12px;
   line-height: 1.45;
   font-weight: 600;
+}
+
+.seat-plan-modal {
+  width: min(94vw, 560px);
+  max-height: 88dvh;
+  overflow: auto;
+}
+
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-title-row .icon-btn {
+  transform: rotate(45deg);
+  box-shadow: none;
+}
+
+.seat-plan.enlarged {
+  min-height: 60dvh;
+  cursor: default;
+}
+
+.seat-plan.enlarged canvas {
+  max-height: 68dvh;
 }
 
 .trend-panel {
