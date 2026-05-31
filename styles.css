@@ -704,36 +704,58 @@ p {
   height: 154px;
   margin-top: 14px;
   position: relative;
-  border-left: 2px solid var(--ink);
-  border-bottom: 2px solid var(--ink);
+  border-left: 0;
+  border-bottom: 0;
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, #fff5b8 0%, #bde8ff 28%, #f6d39a 68%, #17233f 100%);
+  overflow: hidden;
+}
+
+.line-chart::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 16px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .line-chart svg {
   position: absolute;
-  inset: 8px 8px 10px 8px;
+  inset: 14px 12px 20px 12px;
   width: calc(100% - 16px);
   height: calc(100% - 18px);
   overflow: visible;
+  z-index: 1;
 }
 
 .line-chart polyline {
   fill: none;
-  stroke: var(--ink);
+  stroke: rgba(12, 12, 12, 0.72);
   stroke-width: 2.4;
-  vector-effect: non-scaling-stroke;
-}
-
-.line-chart line {
-  stroke: var(--accent);
-  stroke-width: 1.8;
   vector-effect: non-scaling-stroke;
 }
 
 .line-chart circle {
   fill: var(--accent);
   stroke: #ffffff;
-  stroke-width: 1.2;
+  stroke-width: 1.6;
   vector-effect: non-scaling-stroke;
+}
+
+.line-chart circle.good {
+  fill: var(--good);
+}
+
+.line-chart circle.warn {
+  fill: var(--warn);
+}
+
+.line-chart circle.bad {
+  fill: var(--bad);
 }
 
 .line-chart i {
@@ -753,18 +775,20 @@ p {
 }
 
 .week-chart {
-  height: 120px;
+  height: 168px;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   align-items: end;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 7px;
+  margin-top: 12px;
 }
 
 .week-chart div {
   height: 100%;
   display: grid;
+  grid-template-rows: 1fr auto;
   align-items: end;
+  gap: 4px;
   text-align: center;
   color: var(--ink);
   font-size: 12px;
@@ -773,8 +797,21 @@ p {
 
 .week-chart span {
   display: block;
-  border-radius: 999px 999px 0 0;
+  width: 100%;
+  border-radius: 8px;
   background: var(--gray);
+}
+
+.week-chart div.today span {
+  background: var(--accent);
+}
+
+.week-chart div.relaxed span {
+  background: var(--good);
+}
+
+.week-chart div.today.relaxed span {
+  background: linear-gradient(180deg, var(--accent), var(--good));
 }
 
 .insight {

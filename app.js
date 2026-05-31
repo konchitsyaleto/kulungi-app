@@ -759,13 +759,16 @@ function initSeatingPlans() {
 async function renderImageSeatPlan(container, canvas) {
   const code = container.dataset.seatingPlan;
   const crowd = numberValue(container.dataset.crowd, 50);
-  const [tablesImage, chairsImage, outletsImage] = await Promise.all([
-    loadImage(`./seating-plans/${code}-T.png`),
-    loadImage(`./seating-plans/${code}-C.png`),
-    loadImage(`./seating-plans/${code}-E.png`),
+  const fallback = seatingFallbackPrefix(getSelectedLounge());
+  const [outletsImage, tablesImage, chairsImage] = await Promise.all([
+    loadPlanLayer(code, fallback, "E"),
+    loadPlanLayer(code, fallback, "T"),
+    loadPlanLayer(code, fallback, "C"),
   ]);
-  const width = chairsImage.naturalWidth || chairsImage.width;
-  const height = chairsImage.naturalHeight || chairsImage.height;
+  const baseImage = chairsImage || tablesImage || outletsImage;
+  if (!baseImage) throw new Error("no seating plan layers");
+  const width = baseImage.naturalWidth || baseImage.width;
+  const height = baseImage.naturalHeight || baseImage.height;
   const ratio = window.devicePixelRatio || 1;
   canvas.width = width * ratio;
   canvas.height = height * ratio;
@@ -775,18 +778,35 @@ async function renderImageSeatPlan(container, canvas) {
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
-  const tables = detectBoxes(tablesImage);
-  const chairs = detectBoxes(chairsImage);
-  const outlets = detectBoxes(outletsImage);
+  const tables = tablesImage ? detectBoxes(tablesImage) : [];
+  const chairs = chairsImage ? detectBoxes(chairsImage) : [];
+  const outlets = outletsImage ? detectBoxes(outletsImage) : [];
   const chairStates = chairs.map((chair, index) => ({ ...chair, state: pseudoOccupancy(index, crowd) }));
   const tableStates = tables.map((table) => ({ ...table, state: aggregateState(nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45)) }));
   const outletStates = outlets.map((outlet) => ({ ...outlet, state: aggregateState(nearestBoxes(outlet, chairStates, 90)) }));
-  tintLayer(context, tablesImage, tableStates, width, height);
-  tintLayer(context, outletsImage, outletStates, width, height);
-  tintLayer(context, chairsImage, chairStates, width, height);
+  if (outletsImage) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
+  if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
+  if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
   if (loading) loading.textContent = `${chairStates.length}개 좌석을 감지했어요`;
+}
+
+async function loadPlanLayer(code, fallback, type) {
+  const candidates = [`./seating-plans/${code}-${type}.png`, `./seating-plans/${fallback}-${type}.png`, `./seating-plans/Default-open-${type}.png`];
+  for (const src of candidates) {
+    try {
+      return await loadImage(src);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+function seatingFallbackPrefix(lounge) {
+  const text = `${lounge.raw?.default_type || ""} ${lounge.name || ""}`;
+  return text.includes("계단") ? "Default-stairs" : "Default-open";
 }
 
 function loadImage(src) {
@@ -869,7 +889,7 @@ function aggregateState(boxes) {
   return "good";
 }
 
-function tintLayer(targetContext, image, boxes, width, height) {
+function tintLayer(targetContext, image, boxes, width, height, layerType) {
   const source = document.createElement("canvas");
   source.width = width;
   source.height = height;
@@ -890,7 +910,12 @@ function tintLayer(targetContext, image, boxes, width, height) {
     }
   });
   sourceContext.putImageData(imageData, 0, 0);
+  targetContext.save();
+  targetContext.shadowColor = layerType === "outlet" ? "rgba(134, 38, 51, 0.28)" : "rgba(12, 12, 12, 0.22)";
+  targetContext.shadowBlur = layerType === "chair" ? 4 : 7;
+  targetContext.shadowOffsetY = layerType === "outlet" ? 1 : 2;
   targetContext.drawImage(source, 0, 0);
+  targetContext.restore();
 }
 
 function stateColor(state) {
@@ -920,6 +945,8 @@ function renderTrend(lounge) {
   const current = currentTrendPoint(lounge.crowdByTime || []);
   const quietTime = quietestTime(lounge.crowdByTime || []);
   const quietDay = quietestDay(lounge.dayCrowd || []);
+  const today = todayDayLabel();
+  const relaxedDay = quietDay;
   return `
     <section class="panel trend-panel" data-toggle-trend>
       <div class="panel-title">
@@ -929,13 +956,12 @@ function renderTrend(lounge) {
       <div class="line-chart">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <polyline points="${points}" />
-          <line x1="${current.x}" x2="${current.x}" y1="0" y2="100" />
-          <circle cx="${current.x}" cy="${current.y}" r="2.4" />
+          <circle class="${current.state}" cx="${current.x}" cy="${current.y}" r="2.8" />
         </svg>
       </div>
       ${state.trendOpen ? `
         <div class="week-chart">
-          ${(lounge.dayCrowd || []).map((item) => `<div><span style="height:${clamp(item.value, 3, 100)}%"></span><small>${item.day}</small></div>`).join("")}
+          ${weekChartItems(lounge.dayCrowd || [], today, relaxedDay)}
         </div>
         <p class="insight">이 라운지는 ${quietTime}에 비교적 여유롭고, ${quietDay}요일에 가장 여유로워요.</p>
       ` : ""}
@@ -963,18 +989,42 @@ function currentTrendPoint(crowdByTime) {
   return {
     x: crowdByTime.length === 1 ? 0 : (nearestIndex / (crowdByTime.length - 1)) * 100,
     y: 100 - clamp(crowdByTime[nearestIndex].value, 0, 100),
+    state: crowdMetricFromValue(crowdByTime[nearestIndex].value).tone,
   };
 }
 
 function quietestTime(crowdByTime) {
   if (!crowdByTime.length) return "오전";
-  const item = crowdByTime.reduce((best, current) => current.value < best.value ? current : best, crowdByTime[0]);
+  const candidates = crowdByTime.filter((item) => {
+    const minutes = timeKeyToMinutes(item.time);
+    return minutes >= 10 * 60 + 30 && minutes <= 18 * 60 + 30;
+  });
+  const source = candidates.length ? candidates : crowdByTime;
+  const item = source.reduce((best, current) => current.value < best.value ? current : best, source[0]);
   return formatTimeLabel(item.time);
 }
 
 function quietestDay(dayCrowd) {
-  if (!dayCrowd.length) return "주말";
-  return dayCrowd.reduce((best, current) => current.value < best.value ? current : best, dayCrowd[0]).day;
+  const weekdayCrowd = dayCrowd.filter((item) => ["월", "화", "수", "목"].includes(item.day));
+  const source = weekdayCrowd.length ? weekdayCrowd : dayCrowd;
+  if (!source.length) return "월";
+  return source.reduce((best, current) => current.value < best.value ? current : best, source[0]).day;
+}
+
+function weekChartItems(dayCrowd, today, relaxedDay) {
+  if (!dayCrowd.length) return "";
+  const max = Math.max(...dayCrowd.map((item) => item.value), 1);
+  const min = Math.min(...dayCrowd.map((item) => item.value));
+  return dayCrowd.map((item) => {
+    const normalized = max === min ? 0.65 : (item.value - min) / (max - min);
+    const height = 22 + normalized * 78;
+    const classes = [item.day === today ? "today" : "", item.day === relaxedDay ? "relaxed" : ""].filter(Boolean).join(" ");
+    return `<div class="${classes}"><span style="height:${height}%"></span><small>${item.day}</small></div>`;
+  }).join("");
+}
+
+function todayDayLabel() {
+  return ["일", "월", "화", "수", "목", "금", "토"][new Date().getDay()];
 }
 
 function formatTimeLabel(time) {
@@ -1570,7 +1620,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=20").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=21").catch(() => {}));
 }
 
 render();
