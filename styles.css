@@ -701,14 +701,14 @@ p {
 }
 
 .line-chart {
-  height: 154px;
+  height: 184px;
   margin-top: 14px;
   position: relative;
   border-left: 0;
   border-bottom: 0;
   border-radius: 16px;
   background: #ffffff;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .line-chart::after {
@@ -716,7 +716,7 @@ p {
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: 16px;
+  bottom: 0;
   height: 3px;
   border-radius: 999px;
   background: linear-gradient(90deg, #f59e0b 0%, #7dd3fc 52%, #172554 100%);
@@ -724,9 +724,12 @@ p {
 
 .line-chart svg {
   position: absolute;
-  inset: 14px 12px 20px 12px;
-  width: calc(100% - 16px);
-  height: calc(100% - 18px);
+  left: 12px;
+  right: 12px;
+  top: 8px;
+  bottom: 22px;
+  width: calc(100% - 24px);
+  height: calc(100% - 30px);
   overflow: visible;
   z-index: 1;
 }

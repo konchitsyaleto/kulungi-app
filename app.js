@@ -1602,7 +1602,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=22").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=23").catch(() => {}));
 }
 
 render();
