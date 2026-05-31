@@ -712,33 +712,15 @@ function clamp(value, min, max) {
 }
 
 function renderSeatMap(lounge) {
-  if (lounge.code === "10001") {
-    return `
-      <section class="panel">
-        <h2>좌석도</h2>
-        <div class="seat-plan" data-seating-plan="${lounge.code}" data-crowd="${lounge.currentCrowd}" data-open-seat-plan>
-          <canvas aria-label="${lounge.name} 좌석도"></canvas>
-          <div class="seat-plan-loading">좌석도를 불러오는 중이에요</div>
-        </div>
-        <div class="legend"><span class="good"></span> 사용 가능 <span class="warn"></span> 제한 <span class="bad"></span> 사용 중</div>
-        <p class="seat-plan-note">일부 의자와 테이블은 비어있더라도 사용이 제한될 수 있어요.</p>
-      </section>
-    `;
-  }
-  const seats = ["good", "good", "good", "warn", "bad", "good", "good", "bad", "good", "warn", "good", "good", "bad", "good", "good", "warn"];
   return `
     <section class="panel">
       <h2>좌석도</h2>
-      <div class="seat-map">
-        <div class="table table-a"></div>
-        <div class="table table-b"></div>
-        <div class="sofa"></div>
-        ${seats.map((tone, index) => `<span class="seat ${tone}" style="--x:${(index % 8) + 1}; --y:${Math.floor(index / 8) + 1}"></span>`).join("")}
-        <span class="plug-dot p1"></span>
-        <span class="plug-dot p2"></span>
-        <span class="water-dot"></span>
+      <div class="seat-plan" data-seating-plan="${lounge.code}" data-crowd="${lounge.currentCrowd}" data-open-seat-plan>
+        <canvas aria-label="${lounge.name} 좌석도"></canvas>
+        <div class="seat-plan-loading">좌석도를 불러오는 중이에요</div>
       </div>
       <div class="legend"><span class="good"></span> 사용 가능 <span class="warn"></span> 제한 <span class="bad"></span> 사용 중</div>
+      <p class="seat-plan-note">일부 의자와 테이블은 비어있더라도 사용이 제한될 수 있어요.</p>
     </section>
   `;
 }
@@ -1620,7 +1602,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=21").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=22").catch(() => {}));
 }
 
 render();

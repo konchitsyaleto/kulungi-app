@@ -707,8 +707,7 @@ p {
   border-left: 0;
   border-bottom: 0;
   border-radius: 16px;
-  background:
-    linear-gradient(90deg, #fff5b8 0%, #bde8ff 28%, #f6d39a 68%, #17233f 100%);
+  background: #ffffff;
   overflow: hidden;
 }
 
@@ -720,7 +719,7 @@ p {
   bottom: 16px;
   height: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
+  background: linear-gradient(90deg, #f59e0b 0%, #7dd3fc 52%, #172554 100%);
 }
 
 .line-chart svg {
