@@ -43,7 +43,7 @@ const metricDescriptions = {
   },
 };
 
-const lounges = [
+let lounges = [
   {
     id: "library-garden",
     name: "중앙도서관 라운지",
@@ -170,12 +170,11 @@ const lounges = [
   },
 ];
 
-const purposeOptions = ["공부", "팀플", "짧은 휴식", "잠", "식사", "수다", "노트북 사용"];
+const purposeOptions = ["공부", "팀플", "짧은 휴식", "잠", "취식", "수다", "노트북 사용"];
 const featureOptions = ["밝음", "어두움", "조용함", "딱딱한 좌석", "소파", "낮은 테이블", "높은 테이블", "다인석", "콘센트", "프린터", "정수기", "합석 가능", "취식 가능"];
-const campuses = {
-  "인문계 캠퍼스": ["중앙도서관", "LG-POSCO관", "현대자동차 경영관", "백주년기념관", "SK미래관", "우당교양관", "학생회관", "미디어관"],
-  "자연계 캠퍼스": ["공학관", "신공학관", "과학도서관", "애기능생활관"],
-};
+
+if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
+const campuses = buildCampuses(lounges);
 
 const state = {
   route: "home",
@@ -256,16 +255,96 @@ function filteredLounges() {
 }
 
 function sortLounges(a, b) {
-  if (state.sortMode === "crowd") return TONE[a.statusTone] - TONE[b.statusTone] || scoreLounge(b) - scoreLounge(a);
+  if (state.sortMode === "crowd") return a.currentCrowd - b.currentCrowd || scoreLounge(b) - scoreLounge(a);
   if (state.sortMode === "distance") return Number(a.distance.replace(/\D/g, "")) - Number(b.distance.replace(/\D/g, ""));
-  return b.recommendation - a.recommendation || scoreLounge(b) - scoreLounge(a);
+  return scoreLounge(b) - scoreLounge(a);
 }
 
 function scoreLounge(lounge) {
-  const haystack = lounge.tags.join(" ") + " " + lounge.details.map((row) => row[1]).join(" ");
-  const purposeScore = state.selectedPurpose.reduce((score, item) => score + (haystack.includes(item.replace(" 사용", "")) ? 3 : 0), 0);
-  const featureScore = state.selectedFeatures.reduce((score, item) => score + (haystack.includes(item) ? 2 : 0), 0);
-  return purposeScore + featureScore + (lounge.recommended ? 1 : 0);
+  const congestion = clamp(lounge.currentCrowd / 100, 0, 1);
+  const seatAvailability = clamp(1 - congestion, 0, 1);
+  const outletAvailability = lounge.chargeAvailable ? clamp(0.85 - congestion * 0.35, 0.35, 0.9) : 0.05;
+  const availability = 0.5 * seatAvailability + 0.3 * (1 - congestion) + 0.2 * outletAvailability;
+  const purposeFit = purposeFitScore(lounge);
+  const maxDistance = Math.max(...lounges.map((item) => item.distanceM || 1));
+  const distanceScore = clamp(1 - (lounge.distanceM || maxDistance) / maxDistance, 0, 1);
+  const userPreference = state.selectedCampus && state.selectedCampus === lounge.campus ? 0.75 : 0.45;
+  const noiseFit = selectedWantsQuiet() ? quietness(lounge) : moderateNoise(lounge);
+  const brightnessFit = brightnessPreference(lounge);
+  const environmentFit = 0.3 * noiseFit + 0.25 * brightnessFit + 0.25 * (1 - congestion) + 0.2 * (1 - congestion);
+  const favorite = state.favorites.has(lounge.id) ? 1 : 0;
+  const hardPenalty = requiredConditionFit(lounge) < 0.5 ? 0.25 : 1;
+  return 100 * (0.3 * availability + 0.25 * purposeFit + 0.15 * distanceScore + 0.15 * userPreference + 0.1 * environmentFit + 0.05 * favorite) * hardPenalty;
+}
+
+function purposeFitScore(lounge) {
+  const purposes = state.selectedPurpose.length ? state.selectedPurpose : ["공부"];
+  const scores = purposes.map((purpose) => {
+    const congestionFit = 1 - clamp(lounge.currentCrowd / 100, 0, 1);
+    const outlet = lounge.chargeAvailable ? 0.85 : 0.05;
+    const quiet = quietness(lounge);
+    const tableText = lounge.tableTypes.join(" ");
+    const infraText = lounge.infrastructure.join(" ");
+    const hasGroupSeat = /4인|6인|다인|소파|테이블/.test(tableText) ? 1 : 0.35;
+    const hasDesk = /테이블|책상|1인/.test(tableText) ? 1 : 0.45;
+    const hasSofa = /소파|라운지|계단/.test(tableText + lounge.raw.default_type) ? 1 : 0.3;
+    const tableAvailability = tableText ? 0.8 : 0.55;
+    const facility = selectedFeaturesFit(lounge);
+    if (purpose === "팀플") return 0.3 * hasGroupSeat + 0.25 * moderateNoise(lounge) + 0.2 * tableAvailability + 0.15 * outlet + 0.1 * moderateNoise(lounge);
+    if (purpose === "짧은 휴식" || purpose === "잠") return 0.35 * hasSofa + 0.25 * congestionFit + 0.2 * quiet + 0.1 * comfortableLighting(lounge) + 0.1 * congestionFit;
+    if (purpose === "취식" || purpose === "식사") return 0.4 * (lounge.eatingAllowed ? 1 : 0) + 0.25 * tableAvailability + 0.15 * moderateNoise(lounge) + 0.1 * (infraText.includes("휴지통") ? 1 : 0.45) + 0.1 * congestionFit;
+    if (purpose === "노트북 사용") return 0.35 * outlet + 0.25 * hasDesk + 0.2 * quiet + 0.1 * brightnessPreference(lounge) + 0.1 * congestionFit;
+    return 0.35 * quiet + 0.25 * outlet + 0.2 * hasDesk + 0.1 * brightnessPreference(lounge) + 0.1 * congestionFit;
+  });
+  return clamp(scores.reduce((sum, score) => sum + score, 0) / scores.length, 0, 1);
+}
+
+function requiredConditionFit(lounge) {
+  const required = [];
+  if (state.selectedPurpose.includes("취식")) required.push(lounge.eatingAllowed);
+  if (state.selectedFeatures.includes("취식 가능")) required.push(lounge.eatingAllowed);
+  if (state.selectedFeatures.includes("콘센트")) required.push(lounge.chargeAvailable);
+  if (state.selectedFeatures.includes("조용함")) required.push(quietness(lounge) > 0.55);
+  if (!required.length) return 1;
+  return required.filter(Boolean).length / required.length;
+}
+
+function selectedFeaturesFit(lounge) {
+  if (!state.selectedFeatures.length) return 0.6;
+  const haystack = `${lounge.tags.join(" ")} ${lounge.details.map((row) => row[1]).join(" ")}`;
+  const matched = state.selectedFeatures.filter((feature) => haystack.includes(feature) || (feature === "취식 가능" && lounge.eatingAllowed) || (feature === "콘센트" && lounge.chargeAvailable));
+  return matched.length / state.selectedFeatures.length;
+}
+
+function selectedWantsQuiet() {
+  return state.selectedPurpose.some((item) => ["공부", "잠", "노트북 사용"].includes(item)) || state.selectedFeatures.includes("조용함");
+}
+
+function quietness(lounge) {
+  return clamp(1 - numberValue(lounge.raw.sensor_noise, 45) / 80, 0, 1);
+}
+
+function moderateNoise(lounge) {
+  return clamp(1 - Math.abs(numberValue(lounge.raw.sensor_noise, 45) - 55) / 40, 0, 1);
+}
+
+function brightnessPreference(lounge) {
+  if (state.selectedFeatures.includes("어두움")) return clamp(1 - lounge.brightness / 100, 0, 1);
+  if (state.selectedFeatures.includes("밝음")) return clamp(lounge.brightness / 100, 0, 1);
+  return comfortableLighting(lounge);
+}
+
+function comfortableLighting(lounge) {
+  return clamp(1 - Math.abs(lounge.brightness - 55) / 55, 0, 1);
+}
+
+function recommendationPercent(lounge) {
+  const candidates = lounges.filter((item) => (!state.favoritesOnly || state.favorites.has(item.id)) && (!state.selectedBuildings.length || state.selectedBuildings.includes(item.building)));
+  const scores = candidates.map(scoreLounge);
+  const min = Math.min(...scores);
+  const max = Math.max(...scores);
+  if (max === min) return 100;
+  return Math.round(((scoreLounge(lounge) - min) / (max - min)) * 100);
 }
 
 function render() {
@@ -364,7 +443,7 @@ function renderLoungeCard(lounge) {
             <h2>${lounge.name}</h2>
             <div class="card-score">
               <button class="icon-btn favorite ${isFavorite ? "active" : ""}" data-favorite="${lounge.id}" aria-label="즐겨찾기">${icon("heart")}</button>
-              <small>${lounge.recommendation}%</small>
+              <small>${recommendationPercent(lounge)}%</small>
             </div>
           </div>
           <p>${lounge.building} ${lounge.floor} · ${lounge.distance}</p>
@@ -409,7 +488,7 @@ function renderDetail() {
         ${renderMetrics(lounge)}
         ${lounge.recommended ? `<button class="route-callout" data-route="map"><span>지금 출발하면 앉을 수 있어요</span><strong>${icon("clock")} ${lounge.walkMinutes}분</strong></button>` : ""}
         ${renderSeatMap()}
-        ${renderTrend()}
+        ${renderTrend(lounge)}
         ${renderInfoTable(lounge)}
       </div>
     </section>
@@ -439,6 +518,184 @@ function metricDescription(metric) {
   return metricDescriptions[metric.key]?.[metric.value] || metric.detail;
 }
 
+function buildLounges(rows) {
+  const buildingOrder = [...new Set(rows.map((row) => row.building).filter(Boolean))];
+  return rows.map((row, index) => {
+    const crowdByTime = crowdTimeKeys().map((key) => ({ time: key.slice(6), value: numberValue(row[key], numberValue(row.default_crowd_level, 50)) }));
+    const dayCrowd = dayKeys().map(([key, label]) => ({ day: label, value: numberValue(row[key], numberValue(row.default_crowd_level, 50)) }));
+    const currentCrowd = currentCrowdValue(crowdByTime, numberValue(row.default_crowd_level, 50));
+    const currentCrowdNormalized = clamp(currentCrowd / 100, 0, 1);
+    const noise = numberValue(row.sensor_noise, 45);
+    const chargeAvailable = boolValue(row.default_charge);
+    const eatingAllowed = boolValue(row.rule_eating);
+    const brightness = numberValue(row.default_brightness, 55);
+    const infra = splitList(row.infrastructure);
+    const table = splitList(row.default_table);
+    const buildingIndex = Math.max(0, buildingOrder.indexOf(row.building));
+    const distanceM = 160 + buildingIndex * 65 + (index % 4) * 25;
+    const crowdMetric = crowdMetricFromValue(currentCrowd);
+    const noiseMetric = noiseMetricFromValue(noise);
+    const sitMetric = seatMetricFromCrowd(currentCrowd);
+    const chargeMetric = chargeMetricFromData(chargeAvailable, currentCrowd);
+    const lounge = {
+      id: `lounge-${row.lounge_code || index}`,
+      code: row.lounge_code,
+      campus: row.campus || "캠퍼스 미정",
+      name: row.lounge_name || `${row.building || "건물"} 라운지`,
+      building: row.building || "건물 미정",
+      floor: row.lounge_floor || "층수 미정",
+      distance: `${distanceM}m`,
+      distanceM,
+      walkMinutes: Math.max(2, Math.round(distanceM / 70)),
+      favorite: false,
+      recommended: currentCrowdNormalized < 0.65,
+      recommendation: 0,
+      heroTone: "dark",
+      status: currentCrowdNormalized < 0.4 ? "calm" : currentCrowdNormalized < 0.75 ? "normal" : "busy",
+      statusTone: crowdMetric.tone,
+      tags: buildTags(row, infra, table, brightness, chargeAvailable, eatingAllowed),
+      thumbnail: "linear-gradient(135deg, #FFFFFF, #F2F4F7)",
+      image: "linear-gradient(135deg, #FFFFFF, #EEF0F3)",
+      raw: row,
+      crowdByTime,
+      dayCrowd,
+      brightness,
+      eatingAllowed,
+      chargeAvailable,
+      infrastructure: infra,
+      tableTypes: table,
+      currentCrowd,
+      metrics: [
+        { key: "crowd", label: "혼잡도", value: crowdMetric.value, tone: crowdMetric.tone, detail: "" },
+        { key: "noise", label: "소음도", value: noiseMetric.value, tone: noiseMetric.tone, detail: "" },
+        { key: "sit", label: "자리 유무", value: sitMetric.value, tone: sitMetric.tone, detail: "" },
+        { key: "charge", label: "콘센트", value: chargeMetric.value, tone: chargeMetric.tone, detail: "" },
+      ],
+      details: buildDetails(row, infra, table, brightness),
+    };
+    return lounge;
+  });
+}
+
+function buildCampuses(sourceLounges) {
+  return sourceLounges.reduce((acc, lounge) => {
+    if (!acc[lounge.campus]) acc[lounge.campus] = [];
+    if (!acc[lounge.campus].includes(lounge.building)) acc[lounge.campus].push(lounge.building);
+    return acc;
+  }, {});
+}
+
+function buildTags(row, infra, table, brightness, chargeAvailable, eatingAllowed) {
+  const tags = [
+    row.default_type,
+    chargeAvailable ? "콘센트" : "",
+    eatingAllowed ? "취식 가능" : "",
+    brightnessLabel(brightness),
+    ...infra.slice(0, 2),
+    ...table.slice(0, 2),
+  ].filter(Boolean);
+  return [...new Set(tags)].slice(0, 8);
+}
+
+function buildDetails(row, infra, table, brightness) {
+  return [
+    ["좌석 및 테이블", table.length ? table.join(", ") : fallbackTable(row.default_type)],
+    ["라운지 형태", row.default_type || "오픈형"],
+    ["인접 시설", infra.length ? infra.join(", ") : "정수기, 휴게 공간"],
+    ["운영 시간", `${row.open || "08:30"}-${row.close || "22:30"} · ${openDaysText(row)}`],
+    ["라운지 규칙", boolValue(row.rule_eating) ? "취식 가능" : "취식 제한"],
+    ["밝기", brightnessLabel(brightness)],
+  ];
+}
+
+function fallbackTable(type) {
+  if ((type || "").includes("룸")) return "2인 테이블, 독립 좌석";
+  if ((type || "").includes("계단")) return "계단형 좌석, 낮은 테이블";
+  return "1인석, 4인 테이블";
+}
+
+function openDaysText(row) {
+  const labels = [
+    ["mon_open", "월"],
+    ["tue_open", "화"],
+    ["wed_open", "수"],
+    ["thu_open", "목"],
+    ["fri_open", "금"],
+    ["sat_open", "토"],
+    ["sun_open", "일"],
+  ].filter(([key]) => boolValue(row[key])).map(([, label]) => label);
+  if (labels.length === 7) return "매일 운영";
+  if (!labels.length) return "운영일 미정";
+  return `${labels.join(", ")} 운영`;
+}
+
+function brightnessLabel(value) {
+  if (value >= 80) return "매우 밝음";
+  if (value >= 60) return "밝음";
+  if (value >= 40) return "보통";
+  if (value >= 20) return "어두움";
+  return "매우 어두움";
+}
+
+function crowdMetricFromValue(value) {
+  if (value < 40) return { value: "여유", tone: "good" };
+  if (value < 75) return { value: "보통", tone: "warn" };
+  return { value: "혼잡", tone: "bad" };
+}
+
+function noiseMetricFromValue(value) {
+  if (value < 35) return { value: "조용", tone: "good" };
+  if (value < 60) return { value: "보통", tone: "warn" };
+  return { value: "높음", tone: "bad" };
+}
+
+function seatMetricFromCrowd(value) {
+  if (value < 55) return { value: "있음", tone: "good" };
+  if (value < 85) return { value: "조금", tone: "warn" };
+  return { value: "없음", tone: "bad" };
+}
+
+function chargeMetricFromData(chargeAvailable, crowd) {
+  if (!chargeAvailable) return { value: "적음", tone: "bad" };
+  if (crowd < 55) return { value: "넉넉", tone: "good" };
+  return { value: "보통", tone: "warn" };
+}
+
+function currentCrowdValue(crowdByTime, fallback = 50) {
+  if (!crowdByTime.length) return fallback;
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  return crowdByTime.reduce((best, item) => {
+    const itemMinutes = timeKeyToMinutes(item.time);
+    return Math.abs(itemMinutes - minutes) < Math.abs(timeKeyToMinutes(best.time) - minutes) ? item : best;
+  }, crowdByTime[0]).value;
+}
+
+function crowdTimeKeys() {
+  return ["crowd_0830", "crowd_0930", "crowd_1030", "crowd_1130", "crowd_1230", "crowd_1330", "crowd_1430", "crowd_1530", "crowd_1630", "crowd_1730", "crowd_1830", "crowd_1930", "crowd_2030", "crowd_2130", "crowd_2230"];
+}
+
+function dayKeys() {
+  return [["crowd_mon", "월"], ["crowd_tue", "화"], ["crowd_wed", "수"], ["crowd_thu", "목"], ["crowd_fri", "금"], ["crowd_sat", "토"], ["crowd_sun", "일"]];
+}
+
+function splitList(value) {
+  return (value || "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function boolValue(value) {
+  return String(value).trim().toUpperCase() === "TRUE";
+}
+
+function numberValue(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function renderSeatMap() {
   const seats = ["good", "good", "good", "warn", "bad", "good", "good", "bad", "good", "warn", "good", "good", "bad", "good", "good", "warn"];
   return `
@@ -458,9 +715,11 @@ function renderSeatMap() {
   `;
 }
 
-function renderTrend() {
-  const bars = [34, 52, 43, 28, 62, 76, 58, 41, 33, 49, 66, 81];
-  const days = ["월", "화", "수", "목", "금", "토", "일"];
+function renderTrend(lounge) {
+  const points = trendPoints(lounge.crowdByTime || []);
+  const current = currentTrendPoint(lounge.crowdByTime || []);
+  const quietTime = quietestTime(lounge.crowdByTime || []);
+  const quietDay = quietestDay(lounge.dayCrowd || []);
   return `
     <section class="panel trend-panel" data-toggle-trend>
       <div class="panel-title">
@@ -468,17 +727,66 @@ function renderTrend() {
         <span>${state.trendOpen ? "접기" : "더보기"}</span>
       </div>
       <div class="line-chart">
-        ${bars.map((bar, index) => `<i style="height:${bar}%; left:${index * 8.3}%"></i>`).join("")}
-        <b style="left:58%"></b>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <polyline points="${points}" />
+          <line x1="${current.x}" x2="${current.x}" y1="0" y2="100" />
+          <circle cx="${current.x}" cy="${current.y}" r="2.4" />
+        </svg>
       </div>
       ${state.trendOpen ? `
         <div class="week-chart">
-          ${days.map((day, index) => `<div><span style="height:${[45, 38, 56, 42, 72, 30, 24][index]}%"></span><small>${day}</small></div>`).join("")}
+          ${(lounge.dayCrowd || []).map((item) => `<div><span style="height:${clamp(item.value, 3, 100)}%"></span><small>${item.day}</small></div>`).join("")}
         </div>
-        <p class="insight">이 라운지는 목요일 오전과 주말 오후에 비교적 여유로워요.</p>
+        <p class="insight">이 라운지는 ${quietTime}에 비교적 여유롭고, ${quietDay}요일에 가장 여유로워요.</p>
       ` : ""}
     </section>
   `;
+}
+
+function trendPoints(crowdByTime) {
+  const values = crowdByTime.length ? crowdByTime : [{ value: 50 }, { value: 50 }];
+  return values.map((item, index) => {
+    const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
+    const y = 100 - clamp(item.value, 0, 100);
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(" ");
+}
+
+function currentTrendPoint(crowdByTime) {
+  if (!crowdByTime.length) return { x: 50, y: 50 };
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  let nearestIndex = 0;
+  crowdByTime.forEach((item, index) => {
+    if (Math.abs(timeKeyToMinutes(item.time) - minutes) < Math.abs(timeKeyToMinutes(crowdByTime[nearestIndex].time) - minutes)) nearestIndex = index;
+  });
+  return {
+    x: crowdByTime.length === 1 ? 0 : (nearestIndex / (crowdByTime.length - 1)) * 100,
+    y: 100 - clamp(crowdByTime[nearestIndex].value, 0, 100),
+  };
+}
+
+function quietestTime(crowdByTime) {
+  if (!crowdByTime.length) return "오전";
+  const item = crowdByTime.reduce((best, current) => current.value < best.value ? current : best, crowdByTime[0]);
+  return formatTimeLabel(item.time);
+}
+
+function quietestDay(dayCrowd) {
+  if (!dayCrowd.length) return "주말";
+  return dayCrowd.reduce((best, current) => current.value < best.value ? current : best, dayCrowd[0]).day;
+}
+
+function formatTimeLabel(time) {
+  const hour = Number(time.slice(0, 2));
+  const minute = time.slice(2);
+  const period = hour < 12 ? "오전" : "오후";
+  const displayHour = hour % 12 || 12;
+  return `${period} ${displayHour}:${minute}`;
+}
+
+function timeKeyToMinutes(time) {
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(2));
 }
 
 function renderInfoTable(lounge) {
@@ -1025,7 +1333,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=17").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=18").catch(() => {}));
 }
 
 render();
