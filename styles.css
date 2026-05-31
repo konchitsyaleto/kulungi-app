@@ -615,6 +615,54 @@ p {
   background: var(--bad);
 }
 
+.seat-plan {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 230px;
+  margin-top: 14px;
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, rgba(12,12,12,.05) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(rgba(12,12,12,.05) 1px, transparent 1px) 0 0 / 40px 40px,
+    #ffffff;
+  overflow: hidden;
+}
+
+.seat-plan canvas {
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+}
+
+.seat-plan-loading {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--soft-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.seat-plan.ready .seat-plan-loading {
+  color: var(--accent);
+}
+
+.seat-plan.failed canvas {
+  display: none;
+}
+
+.seat-plan-note {
+  margin-top: 8px;
+  color: var(--soft-text);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
 .trend-panel {
   cursor: pointer;
 }

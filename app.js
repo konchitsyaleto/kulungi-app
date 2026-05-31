@@ -359,6 +359,7 @@ function render() {
   app.innerHTML = `<main class="phone-shell">${views[state.route]()}</main>${renderModal()}`;
   bindEvents();
   alignTimePicker();
+  initSeatingPlans();
   adjustHeroTone();
   if (routeChanged) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   lastRenderedRoute = state.route;
@@ -487,7 +488,7 @@ function renderDetail() {
       <div class="detail-content">
         ${renderMetrics(lounge)}
         ${lounge.recommended ? `<button class="route-callout" data-route="map"><span>지금 출발하면 앉을 수 있어요</span><strong>${icon("clock")} ${lounge.walkMinutes}분</strong></button>` : ""}
-        ${renderSeatMap()}
+        ${renderSeatMap(lounge)}
         ${renderTrend(lounge)}
         ${renderInfoTable(lounge)}
       </div>
@@ -696,7 +697,20 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function renderSeatMap() {
+function renderSeatMap(lounge) {
+  if (lounge.code === "10001") {
+    return `
+      <section class="panel">
+        <h2>좌석도</h2>
+        <div class="seat-plan" data-seating-plan="${lounge.code}" data-crowd="${lounge.currentCrowd}">
+          <canvas aria-label="${lounge.name} 좌석도"></canvas>
+          <div class="seat-plan-loading">좌석도를 불러오는 중이에요</div>
+        </div>
+        <div class="legend"><span class="good"></span> 사용 가능 <span class="warn"></span> 제한 <span class="bad"></span> 사용 중</div>
+        <p class="seat-plan-note">현재는 의자 이미지에서 좌석 위치를 자동 감지하고, 임시 점유율로 테이블과 콘센트 상태를 함께 추정해 보여줍니다.</p>
+      </section>
+    `;
+  }
   const seats = ["good", "good", "good", "warn", "bad", "good", "good", "bad", "good", "warn", "good", "good", "bad", "good", "good", "warn"];
   return `
     <section class="panel">
@@ -713,6 +727,168 @@ function renderSeatMap() {
       <div class="legend"><span class="good"></span> 사용 가능 <span class="warn"></span> 제한 <span class="bad"></span> 사용 중</div>
     </section>
   `;
+}
+
+function initSeatingPlans() {
+  document.querySelectorAll("[data-seating-plan]").forEach((container) => {
+    const canvas = container.querySelector("canvas");
+    if (!canvas || canvas.dataset.ready) return;
+    canvas.dataset.ready = "true";
+    renderImageSeatPlan(container, canvas).catch(() => {
+      container.classList.add("failed");
+      const loading = container.querySelector(".seat-plan-loading");
+      if (loading) loading.textContent = "좌석도 이미지를 찾을 수 없어요";
+    });
+  });
+}
+
+async function renderImageSeatPlan(container, canvas) {
+  const code = container.dataset.seatingPlan;
+  const crowd = numberValue(container.dataset.crowd, 50);
+  const [tablesImage, chairsImage, outletsImage] = await Promise.all([
+    loadImage(`./seating-plans/${code}-T.png`),
+    loadImage(`./seating-plans/${code}-C.png`),
+    loadImage(`./seating-plans/${code}-E.png`),
+  ]);
+  const width = chairsImage.naturalWidth || chairsImage.width;
+  const height = chairsImage.naturalHeight || chairsImage.height;
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  canvas.style.aspectRatio = `${width} / ${height}`;
+  const context = canvas.getContext("2d");
+  context.scale(ratio, ratio);
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  const tables = detectBoxes(tablesImage);
+  const chairs = detectBoxes(chairsImage);
+  const outlets = detectBoxes(outletsImage);
+  const chairStates = chairs.map((chair, index) => ({ ...chair, state: pseudoOccupancy(index, crowd) }));
+  const tableStates = tables.map((table) => ({ ...table, state: aggregateState(nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45)) }));
+  const outletStates = outlets.map((outlet) => ({ ...outlet, state: aggregateState(nearestBoxes(outlet, chairStates, 90)) }));
+  drawBoxes(context, tableStates, "table");
+  drawBoxes(context, outletStates, "outlet");
+  drawBoxes(context, chairStates, "chair");
+  container.classList.add("ready");
+  const loading = container.querySelector(".seat-plan-loading");
+  if (loading) loading.textContent = `${chairStates.length}개 좌석을 감지했어요`;
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", reject);
+    image.src = src;
+  });
+}
+
+function detectBoxes(image) {
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const scratch = document.createElement("canvas");
+  scratch.width = width;
+  scratch.height = height;
+  const context = scratch.getContext("2d", { willReadFrequently: true });
+  context.drawImage(image, 0, 0);
+  const data = context.getImageData(0, 0, width, height).data;
+  const seen = new Uint8Array(width * height);
+  const boxes = [];
+  const active = (x, y) => {
+    const offset = (y * width + x) * 4;
+    const alpha = data[offset + 3];
+    const brightness = (data[offset] + data[offset + 1] + data[offset + 2]) / 3;
+    return alpha > 20 && brightness < 245;
+  };
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const start = y * width + x;
+      if (seen[start] || !active(x, y)) continue;
+      const stack = [[x, y]];
+      seen[start] = 1;
+      let minX = x;
+      let maxX = x;
+      let minY = y;
+      let maxY = y;
+      let count = 0;
+      while (stack.length) {
+        const [cx, cy] = stack.pop();
+        count += 1;
+        minX = Math.min(minX, cx);
+        maxX = Math.max(maxX, cx);
+        minY = Math.min(minY, cy);
+        maxY = Math.max(maxY, cy);
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          const index = ny * width + nx;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height || seen[index] || !active(nx, ny)) return;
+          seen[index] = 1;
+          stack.push([nx, ny]);
+        });
+      }
+      const w = maxX - minX + 1;
+      const h = maxY - minY + 1;
+      if (count > 12 && w > 3 && h > 3) boxes.push({ x: minX, y: minY, w, h, cx: minX + w / 2, cy: minY + h / 2 });
+    }
+  }
+  return boxes.sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
+function pseudoOccupancy(index, crowd) {
+  const threshold = clamp(crowd / 100, 0.08, 0.92);
+  const value = ((index * 37 + 23) % 100) / 100;
+  if (value < threshold * 0.78) return "bad";
+  if (value < threshold) return "warn";
+  return "good";
+}
+
+function nearestBoxes(box, boxes, maxDistance) {
+  return boxes.filter((item) => Math.hypot(item.cx - box.cx, item.cy - box.cy) <= maxDistance);
+}
+
+function aggregateState(boxes) {
+  if (!boxes.length) return "good";
+  if (boxes.some((box) => box.state === "bad")) return "bad";
+  if (boxes.some((box) => box.state === "warn")) return "warn";
+  return "good";
+}
+
+function drawBoxes(context, boxes, type) {
+  boxes.forEach((box) => {
+    const color = type === "table" ? "rgba(12, 12, 12, 0.16)" : stateColor(box.state);
+    context.fillStyle = color;
+    context.strokeStyle = type === "table" ? stateColor(box.state) : "#0C0C0C";
+    context.lineWidth = type === "outlet" ? 2 : 1.5;
+    roundRect(context, box.x, box.y, box.w, box.h, type === "outlet" ? 3 : 5);
+    context.fill();
+    context.stroke();
+    if (type === "outlet") {
+      context.fillStyle = "#0C0C0C";
+      context.font = "bold 10px Pretendard, sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText("E", box.cx, box.cy);
+    }
+  });
+}
+
+function stateColor(state) {
+  if (state === "bad") return "#ffb3ba";
+  if (state === "warn") return "#ffffba";
+  return "#baffc9";
+}
+
+function roundRect(context, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.arcTo(x + width, y, x + width, y + height, r);
+  context.arcTo(x + width, y + height, x, y + height, r);
+  context.arcTo(x, y + height, x, y, r);
+  context.arcTo(x, y, x + width, y, r);
+  context.closePath();
 }
 
 function renderTrend(lounge) {
@@ -1333,7 +1509,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=18").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=19").catch(() => {}));
 }
 
 render();
