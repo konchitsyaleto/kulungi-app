@@ -71,20 +71,21 @@ p {
 }
 
 .auth-screen {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   padding: calc(env(safe-area-inset-top) + 28px) 20px calc(env(safe-area-inset-bottom) + 28px);
 }
 
 .form-auth {
   position: relative;
+  place-items: center;
 }
 
 .auth-center {
+  width: 100%;
   display: grid;
   justify-items: center;
-  gap: 18px;
+  gap: 22px;
   text-align: center;
 }
 
@@ -106,13 +107,12 @@ p {
 .auth-form {
   width: 100%;
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .auth-form {
-  align-self: center;
   padding-top: 0;
-  gap: 14px;
+  gap: 16px;
 }
 
 .auth-screen .plain-header {
@@ -128,15 +128,18 @@ p {
 
 .auth-primary {
   width: 100%;
-  height: 26px;
-  min-height: 26px;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  padding: 0 !important;
   display: grid;
   place-items: center;
   border-radius: 999px;
   background: var(--accent);
   color: var(--white);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
+  line-height: 1;
   text-align: center;
 }
 
@@ -167,8 +170,9 @@ p {
 }
 
 .auth-field {
-  min-height: 26px;
-  height: 26px;
+  min-height: 22px;
+  height: 22px;
+  max-height: 22px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -181,7 +185,8 @@ p {
 .auth-field select {
   width: 100%;
   min-width: 0;
-  height: 26px;
+  height: 22px;
+  line-height: 1;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -190,16 +195,16 @@ p {
 }
 
 .auth-field button {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   color: var(--soft-text);
 }
 
 .auth-field svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .select-field {
