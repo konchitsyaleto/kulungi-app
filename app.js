@@ -766,9 +766,9 @@ async function renderImageSeatPlan(container, canvas) {
   const chairStates = chairs.map((chair, index) => ({ ...chair, state: pseudoOccupancy(index, crowd) }));
   const tableStates = tables.map((table) => ({ ...table, state: aggregateState(nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45)) }));
   const outletStates = outlets.map((outlet) => ({ ...outlet, state: aggregateState(nearestBoxes(outlet, chairStates, 90)) }));
-  if (outletsImage) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
-  if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
   if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
+  if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
+  if (outletsImage) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
   if (loading) loading.textContent = `${chairStates.length}개 좌석을 감지했어요`;
@@ -893,9 +893,21 @@ function tintLayer(targetContext, image, boxes, width, height, layerType) {
   });
   sourceContext.putImageData(imageData, 0, 0);
   targetContext.save();
-  targetContext.shadowColor = layerType === "outlet" ? "rgba(134, 38, 51, 0.28)" : "rgba(12, 12, 12, 0.22)";
-  targetContext.shadowBlur = layerType === "chair" ? 4 : 7;
-  targetContext.shadowOffsetY = layerType === "outlet" ? 1 : 2;
+  targetContext.shadowColor = {
+    chair: "rgba(12, 12, 12, 0.18)",
+    table: "rgba(12, 12, 12, 0.26)",
+    outlet: "rgba(134, 38, 51, 0.34)",
+  }[layerType] || "rgba(12, 12, 12, 0.22)";
+  targetContext.shadowBlur = {
+    chair: 4,
+    table: 7,
+    outlet: 9,
+  }[layerType] || 6;
+  targetContext.shadowOffsetY = {
+    chair: 1,
+    table: 2,
+    outlet: 2,
+  }[layerType] || 2;
   targetContext.drawImage(source, 0, 0);
   targetContext.restore();
 }
@@ -923,8 +935,9 @@ function roundRect(context, x, y, width, height, radius) {
 }
 
 function renderTrend(lounge) {
-  const points = trendPoints(lounge.crowdByTime || []);
-  const current = currentTrendPoint(lounge.crowdByTime || []);
+  const crowdByTime = lounge.crowdByTime || [];
+  const points = trendPoints(crowdByTime);
+  const current = currentTrendPoint(crowdByTime);
   const quietTime = quietestTime(lounge.crowdByTime || []);
   const quietDay = quietestDay(lounge.dayCrowd || []);
   const today = todayDayLabel();
@@ -936,10 +949,15 @@ function renderTrend(lounge) {
         <span>${state.trendOpen ? "접기" : "더보기"}</span>
       </div>
       <div class="line-chart">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <polyline points="${points}" />
-          <circle class="${current.state}" cx="${current.x}" cy="${current.y}" r="2.8" />
-        </svg>
+        <div class="line-chart-plot">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="${points}" />
+          </svg>
+          <span class="current-trend-dot ${current.state}" style="left:${current.x}%; top:${current.y}%"></span>
+        </div>
+        <div class="line-chart-labels" style="--time-label-count:${timeLabelCount(crowdByTime)}">
+          ${timeChartLabels(crowdByTime)}
+        </div>
       </div>
       ${state.trendOpen ? `
         <div class="week-chart">
@@ -958,6 +976,21 @@ function trendPoints(crowdByTime) {
     const y = 100 - clamp(item.value, 0, 100);
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   }).join(" ");
+}
+
+function timeChartLabels(crowdByTime) {
+  const values = crowdByTime.length ? crowdByTime : [{ time: "0830" }, { time: "2230" }];
+  return values.map((item) => `<small>${formatHourNumber(item.time)}</small>`).join("");
+}
+
+function timeLabelCount(crowdByTime) {
+  return crowdByTime.length || 2;
+}
+
+function formatHourNumber(time) {
+  const hour = Number(String(time).slice(0, 2));
+  if (!Number.isFinite(hour)) return "";
+  return String(hour % 12 || 12);
 }
 
 function currentTrendPoint(crowdByTime) {
