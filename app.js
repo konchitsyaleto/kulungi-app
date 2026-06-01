@@ -2131,10 +2131,12 @@ function bindEvents() {
   });
   document.querySelector("[data-lounge-search]")?.addEventListener("input", (event) => {
     state.loungeSearch = event.currentTarget.value;
+    if (event.isComposing) return;
     render();
-    const input = document.querySelector("[data-lounge-search]");
-    input?.focus();
-    input?.setSelectionRange(input.value.length, input.value.length);
+  });
+  document.querySelector("[data-lounge-search]")?.addEventListener("compositionend", (event) => {
+    state.loungeSearch = event.currentTarget.value;
+    render();
   });
   document.querySelectorAll("[data-auth-route]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2581,7 +2583,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=52").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=53").catch(() => {}));
 }
 
 async function boot() {
