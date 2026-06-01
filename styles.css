@@ -1571,6 +1571,24 @@ p {
   font-weight: 700;
 }
 
+.bgm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 4px 0;
+  color: var(--soft-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bgm-row button {
+  flex: 0 0 auto;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .mock-map {
   height: 62dvh;
   position: relative;
@@ -1877,6 +1895,18 @@ body {
   padding: 0 16px;
 }
 
+.lounge-search-input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.lounge-search-input::placeholder {
+  color: #91A3B0;
+}
+
 .preset-trigger {
   flex: 0 0 auto;
   justify-content: center;
@@ -1913,6 +1943,11 @@ body {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.sort-controls .preset-inline {
+  margin-left: auto;
+  color: var(--accent);
 }
 
 .sort-controls i {

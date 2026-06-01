@@ -1752,7 +1752,7 @@ window.LOUNGE_RAW_DATA = [
   {
     "lounge_code": "10036",
     "campus": "인문 캠퍼스",
-    "building": "우당교육관",
+    "building": "우당교양관",
     "lounge_name": "1층 라운지",
     "lounge_floor": "1F",
     "infrastructure": "",
