@@ -74,7 +74,6 @@ let lounges = [
       ["인접 시설", "정수기, 복사실, 도서 대출대"],
       ["운영 시간", "평일 09:00-22:00"],
       ["라운지 규칙", "큰 통화와 음식 섭취는 제한"],
-      ["밝기", "자연광이 들어오는 밝은 공간"],
     ],
   },
   {
@@ -105,7 +104,6 @@ let lounges = [
       ["인접 시설", "카페, 프린터, 팀플룸"],
       ["운영 시간", "평일 08:30-21:30"],
       ["라운지 규칙", "팀 활동 가능, 장시간 자리 맡기 제한"],
-      ["밝기", "중간 밝기, 저녁에는 조명이 따뜻함"],
     ],
   },
   {
@@ -136,7 +134,6 @@ let lounges = [
       ["인접 시설", "카페, 편의점"],
       ["운영 시간", "건물 개방 시간 내 이용"],
       ["라운지 규칙", "취식 가능, 장시간 학습은 비추천"],
-      ["밝기", "간접 조명 중심의 편안한 밝기"],
     ],
   },
   {
@@ -167,7 +164,6 @@ let lounges = [
       ["인접 시설", "복사실, 사물함"],
       ["운영 시간", "평일 09:00-23:00"],
       ["라운지 규칙", "정숙 필수, 취식 제한"],
-      ["밝기", "밝은 백색 조명"],
     ],
   },
 ];
@@ -207,6 +203,55 @@ const featureFieldMap = {
   "은행/ATM": "bank",
   "샤워실": "shower",
 };
+const buildingImages = [
+  { code: 10001, src: "./buildings/10001.jpg" },
+  { code: 10002, src: "./buildings/10002.jpg" },
+  { code: 10003, src: "./buildings/10003.jpg" },
+  { code: 10004, src: "./buildings/10004.jpg" },
+  { code: 10005, src: "./buildings/10005.jpg" },
+  { code: 10006, src: "./buildings/10006.jpg" },
+  { code: 10007, src: "./buildings/10007.jpg" },
+  { code: 10008, src: "./buildings/10008.webp" },
+  { code: 10009, src: "./buildings/10009.jpg" },
+  { code: 10010, src: "./buildings/10010.jpeg" },
+  { code: 10011, src: "./buildings/10011.png" },
+  { code: 10012, src: "./buildings/10012.jpg" },
+  { code: 10013, src: "./buildings/10013.jpeg" },
+  { code: 10014, src: "./buildings/10014.png" },
+  { code: 10015, src: "./buildings/10015.jpg" },
+  { code: 10016, src: "./buildings/10016.jpg" },
+  { code: 10017, src: "./buildings/10017.jpg" },
+  { code: 10018, src: "./buildings/10018.jpg" },
+  { code: 10019, src: "./buildings/10019.jpg" },
+  { code: 10020, src: "./buildings/10020.webp" },
+  { code: 10021, src: "./buildings/10021.webp" },
+  { code: 10022, src: "./buildings/10022.png" },
+  { code: 10023, src: "./buildings/10023.jpg" },
+  { code: 10024, src: "./buildings/10024.jpg" },
+  { code: 10025, src: "./buildings/10025.jpg" },
+  { code: 10027, src: "./buildings/10027.jpg" },
+  { code: 10028, src: "./buildings/10028.png" },
+  { code: 10029, src: "./buildings/10029.jpg" },
+  { code: 10030, src: "./buildings/10030.webp" },
+  { code: 10031, src: "./buildings/10031.jpg" },
+  { code: 10032, src: "./buildings/10032.webp" },
+  { code: 10033, src: "./buildings/10033.jpg" },
+  { code: 10034, src: "./buildings/10034.jpg" },
+  { code: 10035, src: "./buildings/10035.jpg" },
+  { code: 10036, src: "./buildings/10036.jpg" },
+  { code: 10037, src: "./buildings/10037.webp" },
+  { code: 10040, src: "./buildings/10040.jpg" },
+  { code: 20001, src: "./buildings/20001.jpeg" },
+  { code: 20002, src: "./buildings/20002.jpg" },
+  { code: 20006, src: "./buildings/20006.webp" },
+  { code: 20008, src: "./buildings/20008.jpeg" },
+  { code: 20012, src: "./buildings/20012.jpg" },
+  { code: 20015, src: "./buildings/20015.jpeg" },
+  { code: 20017, src: "./buildings/20017.webp" },
+  { code: 20018, src: "./buildings/20018.jpg" },
+  { code: 20020, src: "./buildings/20020.webp" },
+  { code: 20022, src: "./buildings/20022.jpg" },
+];
 const AUTH_USERS_KEY = "kulungi-users-v1";
 const AUTH_SESSION_KEY = "kulungi-session-v1";
 const AUTH_GUEST_KEY = "kulungi-guest-v1";
@@ -222,6 +267,7 @@ const adminNicknames = ["테스트2"];
 const allowedNicknames = ["비플렉스", "강소은", "다인", "주리", "테스트2"];
 let collegeMajorData = [];
 let seatSimulationData = null;
+let staticSeatOccupancyData = null;
 const blueprintCache = {};
 const seatAvailabilityCache = {};
 let mascotAudio = null;
@@ -956,6 +1002,7 @@ function buildLounges(rows) {
     const chargeAvailable = flagValue(row.charge);
     const eatingAllowed = flagValue(row.eat);
     const distanceM = numberValue(row.distance, 0);
+    const photo = buildingPhotoFor(row.lounge_code);
     const lounge = {
       id: `lounge-${row.lounge_code || index}`,
       code: row.lounge_code,
@@ -973,8 +1020,8 @@ function buildLounges(rows) {
       status: crowdMetric.tone === "good" ? "calm" : crowdMetric.tone === "warn" ? "normal" : "busy",
       statusTone: crowdMetric.tone,
       tags: buildTags(row, infra, table),
-      thumbnail: "linear-gradient(135deg, #FFFFFF, #F2F4F7)",
-      image: "linear-gradient(135deg, #FFFFFF, #EEF0F3)",
+      thumbnail: photo,
+      image: photo,
       raw: row,
       crowdByTime,
       dayCrowd,
@@ -999,7 +1046,17 @@ function buildLounges(rows) {
   built.forEach((lounge) => {
     lounge.recommendationByTime = buildRecommendationByTime(lounge.raw, lounge.crowdByTime, lounge.distanceM);
   });
-  return built.map((lounge) => simulateLounge(lounge));
+  return built;
+}
+
+function buildingPhotoFor(code) {
+  const numericCode = numberValue(code, 0);
+  const match = buildingImages.reduce((best, image) => {
+    if (image.code > numericCode) return best;
+    if (!best || image.code > best.code) return image;
+    return best;
+  }, null);
+  return match ? `url("${match.src}") center / cover no-repeat` : "linear-gradient(135deg, #FFFFFF, #F2F4F7)";
 }
 
 function formatDistance(distanceM) {
@@ -1015,7 +1072,7 @@ function arrivalMinutes(distanceM) {
 function buildRecommendationByTime(row, crowdByTime, distanceM) {
   return crowdByTime.reduce((map, item) => {
     const crowdScore = crowdScoreFromValue(item.value);
-    const seatScore = estimatedSeatAvailabilityByRow(row, item.time, item.value).availableSeats > 0 ? 1 : 0;
+    const seatScore = isOpenAt(row, item.time) && item.value / Math.max(maxCrowdValue, 1) < 0.92 ? 1 : 0;
     const availability = seatScore * 0.5 + crowdScore * 0.5;
     const distanceScore = clamp(1 - numberValue(distanceM, 0) / 1908, 0, 1);
     map[item.time] = clamp(availability * 0.4 + distanceScore * 0.15 + 0.15, 0, 1);
@@ -1110,9 +1167,7 @@ function buildDetails(row, infra, table, brightness) {
     ["좌석 및 테이블", table.length ? table.join(", ") : fallbackTable(row.default_type)],
     ["시설", infra.length ? infra.join(", ") : "시설 정보 없음"],
     ["평균 체류시간", `${numberValue(row.usage_time, 0)}분`],
-    ["소음 단계", row["noise level"] || noiseMetricFromValue(currentNoiseValue(row)).value],
     ["운영 시간", `${row.open || "08:30"}-${row.close || "22:30"} · ${openDaysText(row)}`],
-    ["밝기", brightnessLabel(brightness)],
   ];
 }
 
@@ -1242,8 +1297,9 @@ function estimatedSeatAvailabilityByRow(row, time, crowdValue = null) {
   const minutes = typeof time === "number" ? time : timeLabelToMinutes(time);
   if (!isOpenAt(row || {}, minutes)) return { availableSeats: 0, totalSeats: 24, availableOutlets: 0, totalOutlets: flagValue(row?.charge) ? 4 : 0 };
   const timeKey = `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
-  const totalSeats = 24;
-  const occupiedSeats = Array.from({ length: totalSeats }, (_, index) => deterministicSeatOccupied(row?.lounge_code || "lounge", row || {}, index, timeKey, clamp((crowdValue ?? 50) / 100, 0, 1))).filter(Boolean).length;
+  const staticSeats = staticSeatStates(row?.lounge_code, timeKey, 24);
+  const totalSeats = staticSeats.length || 24;
+  const occupiedSeats = staticSeats.length ? staticSeats.filter(Boolean).length : Math.round(totalSeats * clamp((crowdValue ?? 50) / Math.max(maxCrowdValue, 1), 0, 1));
   const seatCount = totalSeats - occupiedSeats;
   const normalized = clamp((crowdValue ?? crowdStaticValue(row || {}, timeKey)) / Math.max(maxCrowdValue, 1), 0, 1);
   const outletTotal = flagValue(row?.charge) ? 4 : 0;
@@ -1253,6 +1309,13 @@ function estimatedSeatAvailabilityByRow(row, time, crowdValue = null) {
     availableOutlets: outletTotal ? Math.max(0, Math.round(outletTotal * (1 - normalized))) : 0,
     totalOutlets: outletTotal,
   };
+}
+
+function staticSeatStates(code, time, count) {
+  const key = normalizedPopulousKey(time);
+  const encoded = staticSeatOccupancyData?.lounges?.[String(code || "").trim()]?.times?.[key];
+  if (!encoded) return [];
+  return String(encoded).slice(0, count).split("").map((value) => value === "1");
 }
 
 function seatAvailabilityAt(lounge, minutes = selectedUseMinutes()) {
@@ -1420,7 +1483,8 @@ async function renderImageSeatPlan(container, canvas) {
   const loading = container.querySelector(".seat-plan-loading");
   if (loading) loading.textContent = simulation.availableSeats ? `자리가 ${simulation.availableSeats}석 남았어요` : "지금은 앉을 수 있는 자리가 없어요";
   if (!container.closest(".seat-plan-modal") && state.route === "detail" && availabilityChanged(previousAvailability, nextAvailability)) {
-    window.setTimeout(render, 0);
+    const lounge = getSelectedLounge();
+    updateDetailSeatMetric(lounge, nextAvailability);
   }
 }
 
@@ -1429,11 +1493,23 @@ function availabilityChanged(previous, next) {
   return previous.availableSeats !== next.availableSeats || previous.totalSeats !== next.totalSeats || previous.availableOutlets !== next.availableOutlets || previous.totalOutlets !== next.totalOutlets;
 }
 
+function updateDetailSeatMetric(lounge, availability) {
+  const metricCards = document.querySelectorAll(".metric-card");
+  const sitMetricCard = [...metricCards].find((card) => card.dataset.metric === "sit");
+  if (!sitMetricCard) return;
+  const metric = seatMetricFromAvailability(availability.availableSeats > 0, numberValue(lounge.raw?.usage_time, 60));
+  sitMetricCard.classList.remove("good", "warn", "bad");
+  sitMetricCard.classList.add(metric.tone);
+  const value = sitMetricCard.querySelector("strong");
+  if (value) value.textContent = metric.value;
+}
+
 function deterministicSeatSimulation(code, lounge, chairs, tables, outlets, crowdFallback) {
   const timeKey = normalizedPopulousKey(simulationTimeValue());
+  const staticStates = staticSeatStates(code, timeKey, chairs.length);
   const chairStates = chairs.map((chair, index) => ({
     ...chair,
-    state: deterministicSeatOccupied(code, lounge.raw || {}, index, timeKey, crowdFallback) ? "bad" : "good",
+    state: (staticStates[index] ?? lightweightSeatOccupied(code, index, timeKey, crowdFallback)) ? "bad" : "good",
   }));
   const chairTableIndexes = assignChairsToTables(chairStates, tables);
   const tableStates = tables.map((table) => {
@@ -1479,27 +1555,9 @@ function assignChairsToTables(chairs, tables) {
   });
 }
 
-function deterministicSeatOccupied(code, row, index, targetTime, crowdFallback) {
-  let occupied = false;
-  const targetMinutes = timeLabelToMinutes(targetTime);
-  for (let minutes = 0; minutes <= targetMinutes; minutes += 5) {
-    const time = `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
-    if (!isOpenAt(row, minutes)) {
-      occupied = false;
-      continue;
-    }
-    const p = populousValueAt(time, clamp(crowdFallback / 100, 0, 1));
-    const r1 = stableRandom(`${code}-${index}-${time}-a`);
-    const z = inverseNormal(clamp(stableRandom(`${code}-${index}-${time}-b`), 0.001, 0.999));
-    if (!occupied) {
-      occupied = r1 < p && z > p;
-    } else if (r1 < p) {
-      occupied = true;
-    } else {
-      occupied = !(z > p);
-    }
-  }
-  return occupied;
+function lightweightSeatOccupied(code, index, time, crowdFallback) {
+  const p = populousValueAt(time, clamp(crowdFallback / 100, 0, 1));
+  return stableRandom(`${code}-${index}-${time}-static-fallback`) < p;
 }
 
 function stableRandom(seed) {
@@ -3053,12 +3111,21 @@ async function loadSeatSimulationData() {
   }
 }
 
+async function loadStaticSeatOccupancyData() {
+  try {
+    const response = await fetch("./seat-occupancy-static.json");
+    staticSeatOccupancyData = await response.json();
+  } catch {
+    staticSeatOccupancyData = null;
+  }
+}
+
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=65").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=70").catch(() => {}));
 }
 
 async function boot() {
-  await Promise.all([loadCollegeMajorData(), loadSeatSimulationData()]);
+  await Promise.all([loadCollegeMajorData(), loadSeatSimulationData(), loadStaticSeatOccupancyData()]);
   await restoreSupabaseSession();
   render();
 }

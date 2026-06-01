@@ -427,9 +427,17 @@ p {
   align-self: start;
   display: grid;
   place-items: center;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   color: var(--ink);
   font-weight: 800;
   text-align: center;
+  overflow: hidden;
+}
+
+.thumb span {
+  display: none;
 }
 
 .card-info {
@@ -1802,10 +1810,6 @@ p {
 .profile-edit-card input,
 .profile-edit-card select {
   background: var(--gray);
-}
-
-.thumb {
-  background: var(--gray) !important;
 }
 
 .card-title-row h2 {
