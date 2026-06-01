@@ -459,7 +459,7 @@ function summaryTitle() {
 function filteredLounges(includeSearch = true) {
   let result = lounges.map(simulateLounge);
   const query = state.loungeSearch.trim().toLowerCase();
-  if (includeSearch && query) result = result.filter((lounge) => lounge.name.toLowerCase().includes(query));
+  if (includeSearch && query) result = result.filter((lounge) => `${lounge.name} ${lounge.building}`.toLowerCase().includes(query));
   if (state.favoritesOnly) result = result.filter((lounge) => state.favorites.has(lounge.id));
   if (state.selectedCampus && !state.selectedBuildings.length) result = result.filter((lounge) => lounge.campus === state.selectedCampus);
   if (state.selectedBuildings.length) result = result.filter((lounge) => state.selectedBuildings.includes(lounge.building));
@@ -813,7 +813,7 @@ function renderSortControls() {
 function renderLoungeCard(lounge) {
   const isFavorite = state.favorites.has(lounge.id);
   return `
-    <article class="lounge-card-wrap" data-lounge-card-name="${escapeHtml(lounge.name.toLowerCase())}">
+    <article class="lounge-card-wrap" data-lounge-card-name="${escapeHtml(`${lounge.name} ${lounge.building}`.toLowerCase())}">
       <div class="lounge-card" data-open-lounge="${lounge.id}" role="button" tabindex="0">
         <div class="thumb" style="background:${lounge.thumbnail}"><span>라운지 사진</span></div>
         <div class="card-info">
@@ -2637,7 +2637,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=58").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=59").catch(() => {}));
 }
 
 async function boot() {
