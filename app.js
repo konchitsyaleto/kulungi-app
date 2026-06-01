@@ -614,6 +614,7 @@ function render() {
   if (accessBlocked()) state.route = "restricted";
   const views = {
     welcome: renderWelcome,
+    guestConfirm: renderGuestConfirm,
     signup: renderSignup,
     login: renderLogin,
     restricted: renderRestricted,
@@ -635,11 +636,11 @@ function render() {
 }
 
 function accessBlocked() {
-  return !["welcome", "signup", "login", "restricted"].includes(state.route) && !canAccessProject();
+  return !["welcome", "guestConfirm", "signup", "login", "restricted"].includes(state.route) && !canAccessProject();
 }
 
 function canAccessProject() {
-  return allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser) || state.profile.role === "admin";
+  return state.isGuest || allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser) || state.profile.role === "admin";
 }
 
 function isSimulationAdmin() {
@@ -647,7 +648,7 @@ function isSimulationAdmin() {
 }
 
 function renderAdminTimeBar() {
-  if (!isSimulationAdmin() || ["welcome", "signup", "login", "restricted"].includes(state.route)) return "";
+  if (!isSimulationAdmin() || ["welcome", "guestConfirm", "signup", "login", "restricted"].includes(state.route)) return "";
   return `
     <div class="admin-time-bar">
       <label>
@@ -686,6 +687,22 @@ function renderWelcome() {
           <button class="auth-primary" data-auth-route="signup">쿠룽지 친구 되기</button>
           <button class="auth-login-link" data-auth-route="login">이미 쿠룽지 친구예요</button>
           <button class="auth-ghost" data-guest-start>친구는 좀 부담스러워요</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderGuestConfirm() {
+  return `
+    <section class="screen auth-screen guest-confirm-screen">
+      <div class="auth-center guest-confirm-card">
+        <img class="guest-confirm-image" src="./_256/no_login.png" alt="" />
+        <h1>쿠룽지 친구가 되지 않으면 설정을 저장할 수 없고 룽지가 울어요</h1>
+        <div class="guest-confirm-actions">
+          <button data-auth-route="signup">알았어요 친구 할게요</button>
+          <button data-auth-route="login">사실 이미 친구예요</button>
+          <button data-guest-confirm>그래도 친구는 좀 부담스러워요</button>
         </div>
       </div>
     </section>
@@ -1326,8 +1343,8 @@ async function renderImageSeatPlan(container, canvas) {
   const chairStates = simulation.chairs;
   const tableStates = simulation.tables;
   const outletStates = simulation.outlets;
-  if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
   if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
+  if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
   if (outletsImage && state.showOutlets) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
   const cacheKey = seatAvailabilityKey(code);
   const previousAvailability = seatAvailabilityCache[cacheKey];
@@ -1869,7 +1886,7 @@ function roundRect(context, x, y, width, height, radius) {
 
 function renderTrend(lounge) {
   const crowdByTime = lounge.crowdByTime || [];
-  const points = trendPoints(crowdByTime);
+  const linePath = trendPath(crowdByTime);
   const current = currentTrendPoint(crowdByTime);
   const quietTime = quietestTime(lounge.crowdByTime || []);
   const quietDay = quietestDay(lounge.dayCrowd || []);
@@ -1884,7 +1901,7 @@ function renderTrend(lounge) {
       <div class="line-chart">
         <div class="line-chart-plot">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <polyline points="${points}" />
+            <path d="${linePath}" />
           </svg>
           <span class="current-trend-dot ${current.state}" style="left:${current.x}%; top:${current.y}%"></span>
         </div>
@@ -1908,8 +1925,27 @@ function trendPoints(crowdByTime) {
   return values.map((item, index) => {
     const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
     const y = 100 - clamp((item.value / maxValue) * 100, 0, 100);
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  }).join(" ");
+    return { x, y };
+  });
+}
+
+function trendPath(crowdByTime) {
+  const points = trendPoints(crowdByTime);
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+  const commands = [`M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] || points[index];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = points[index + 2] || next;
+    const cp1x = current.x + (next.x - previous.x) / 6;
+    const cp1y = current.y + (next.y - previous.y) / 6;
+    const cp2x = next.x - (afterNext.x - current.x) / 6;
+    const cp2y = next.y - (afterNext.y - current.y) / 6;
+    commands.push(`C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`);
+  }
+  return commands.join(" ");
 }
 
 function timeChartLabels(crowdByTime) {
@@ -2494,7 +2530,15 @@ function bindEvents() {
     localStorage.removeItem(AUTH_GUEST_KEY);
     state.isGuest = true;
     state.currentUser = null;
-    state.route = "restricted";
+    state.route = "guestConfirm";
+    render();
+  });
+  document.querySelector("[data-guest-confirm]")?.addEventListener("click", () => {
+    localStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem(AUTH_GUEST_KEY);
+    state.isGuest = true;
+    state.currentUser = null;
+    state.route = "home";
     render();
   });
   document.querySelector("[data-logout]")?.addEventListener("click", async () => {
@@ -2927,7 +2971,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=62").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=64").catch(() => {}));
 }
 
 async function boot() {

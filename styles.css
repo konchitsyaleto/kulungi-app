@@ -246,6 +246,46 @@ p {
   color: var(--ink);
 }
 
+.guest-confirm-card {
+  gap: 18px;
+}
+
+.guest-confirm-image {
+  width: min(220px, 64vw);
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+}
+
+.guest-confirm-card h1 {
+  max-width: 320px;
+  font-size: 20px;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
+.guest-confirm-actions {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.guest-confirm-actions button {
+  min-height: 30px;
+  color: var(--soft-text);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.guest-confirm-actions button:first-child {
+  color: var(--accent);
+}
+
+.guest-confirm-actions button:nth-child(2) {
+  color: var(--ink);
+}
+
 .auth-photo {
   display: grid;
   justify-items: center;
@@ -1015,11 +1055,13 @@ p {
   z-index: 1;
 }
 
-.line-chart polyline {
+.line-chart path {
   fill: none;
   stroke: rgba(12, 12, 12, 0.72);
   stroke-width: 2.4;
   vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .current-trend-dot {

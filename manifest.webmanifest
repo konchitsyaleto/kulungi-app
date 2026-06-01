@@ -8,9 +8,9 @@
   "description": "교내 라운지를 목적, 상황, 혼잡도에 맞게 추천하는 프로토타입",
   "icons": [
     {
-      "src": "./icons/icon.svg",
+      "src": "./icons/icon.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
