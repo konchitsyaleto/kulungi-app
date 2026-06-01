@@ -1112,8 +1112,8 @@ async function loadPlanLayer(code, fallback, type) {
 async function renderBlueprintSeatPlan(container, canvas, code) {
   const blueprint = await loadBlueprint(code);
   const timeKey = currentBlueprintTimeKey(blueprint.timeKeys);
-  const scaleX = 160;
-  const scaleY = 120;
+  const scaleX = 200;
+  const scaleY = 150;
   const objects = [
     ...blueprint.chairs.map((item) => {
       const occupancy = blueprint.occupancyBySeat.get(String(item.seat).trim());
@@ -1142,7 +1142,7 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
     src: "E1.png",
     stateSrc: "E1-00.png",
     x: numberValue(item.pos_x) * scaleX,
-    bottomY: numberValue(item.pos_y) * scaleY - 60,
+    bottomY: numberValue(item.pos_y) * scaleY - 150,
     sortY: Number.POSITIVE_INFINITY,
   }));
   const all = [...objects, ...outlets];
@@ -2366,7 +2366,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=43").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=44").catch(() => {}));
 }
 
 async function boot() {
