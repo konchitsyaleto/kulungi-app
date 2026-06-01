@@ -386,6 +386,32 @@ async function syncSupabaseUserData() {
   }
 }
 
+function authErrorMessage(error) {
+  const message = error?.message || "";
+  if (message.toLowerCase().includes("email not confirmed")) return "Supabase 이메일 확인이 켜져 있어요. Authentication 설정에서 Confirm email을 꺼주세요.";
+  if (message.toLowerCase().includes("invalid login credentials")) return "닉네임이나 비밀번호가 맞지 않습니다.";
+  if (message.toLowerCase().includes("user already registered")) return "이미 가입된 닉네임입니다. 로그인으로 들어와주세요.";
+  if (message.toLowerCase().includes("password")) return "비밀번호는 Supabase 기준에 맞게 6자 이상으로 입력해주세요.";
+  return message || "로그인 처리 중 문제가 생겼습니다.";
+}
+
+async function finishSupabaseLogin(user, nickname) {
+  const localUser = readUsers()[nickname] || {
+    nickname,
+    role: "user",
+    profile: { name: nickname, college: state.profile.college, department: state.profile.department, photo: "", saved: false, role: "user" },
+    favorites: defaultFavorites,
+    presets: defaultPresets,
+  };
+  localStorage.setItem(AUTH_SESSION_KEY, nickname);
+  localStorage.removeItem(AUTH_GUEST_KEY);
+  applyUser(localUser);
+  await loadSupabaseUserData(user);
+  await syncSupabaseUserData();
+  state.route = "home";
+  state.authError = "";
+}
+
 function colleges() {
   return [...new Set(collegeMajorData.map((item) => item.college).filter(Boolean))];
 }
@@ -1796,12 +1822,6 @@ function bindEvents() {
       render();
       return;
     }
-    const users = readUsers();
-    if (users[nickname]) {
-      state.authError = "이미 사용 중인 닉네임입니다.";
-      render();
-      return;
-    }
     const { data, error } = await supabase.auth.signUp({
       email: nicknameToAuthEmail(nickname),
       password,
@@ -1810,7 +1830,12 @@ function bindEvents() {
       },
     });
     if (error) {
-      state.authError = error.message || "회원가입에 실패했습니다.";
+      state.authError = authErrorMessage(error);
+      render();
+      return;
+    }
+    if (!data.session) {
+      state.authError = "Supabase에서 로그인 세션을 만들지 못했습니다. 새로고침 후 로그인으로 다시 들어와주세요.";
       render();
       return;
     }
@@ -1823,12 +1848,13 @@ function bindEvents() {
       favorites: [...state.favorites],
       presets: state.presets,
     };
+    const users = readUsers();
     users[nickname] = user;
     writeUsers(users);
     localStorage.setItem(AUTH_SESSION_KEY, nickname);
     localStorage.removeItem(AUTH_GUEST_KEY);
     applyUser(user);
-    if (data.user) await syncSupabaseUserData();
+    await syncSupabaseUserData();
     state.route = "home";
     state.authError = "";
     render();
@@ -1843,24 +1869,32 @@ function bindEvents() {
       password: password || "",
     });
     if (error || !data.user) {
-      state.authError = "닉네임이나 비밀번호를 확인해주세요.";
+      const localUser = readUsers()[nickname];
+      const localPasswordOk = localUser?.passwordHash === await passwordHash(password || "");
+      if (localPasswordOk) {
+        const recovered = await supabase.auth.signUp({
+          email: nicknameToAuthEmail(nickname),
+          password,
+          options: { data: { nickname } },
+        });
+        if (recovered.error || !recovered.data.session) {
+          state.authError = authErrorMessage(recovered.error) || "기존 기기 계정을 Supabase에 연결하지 못했습니다.";
+          render();
+          return;
+        }
+        applyUser(localUser);
+        await syncSupabaseUserData();
+        await finishSupabaseLogin(recovered.data.user, nickname);
+        state.authDraft = { nickname: "", password: "" };
+        render();
+        return;
+      }
+      state.authError = authErrorMessage(error);
       render();
       return;
     }
     state.authDraft = { nickname: "", password: "" };
-    const user = readUsers()[nickname] || {
-      nickname,
-      role: adminNicknames.includes(nickname) ? "admin" : "user",
-      profile: { name: nickname, college: state.profile.college, department: state.profile.department, photo: "", saved: false, role: adminNicknames.includes(nickname) ? "admin" : "user" },
-      favorites: defaultFavorites,
-      presets: defaultPresets,
-    };
-    localStorage.setItem(AUTH_SESSION_KEY, nickname);
-    localStorage.removeItem(AUTH_GUEST_KEY);
-    applyUser(user);
-    await loadSupabaseUserData(data.user);
-    state.route = "home";
-    state.authError = "";
+    await finishSupabaseLogin(data.user, nickname);
     render();
   });
   document.querySelectorAll("[data-route]").forEach((button) => {
@@ -2128,7 +2162,7 @@ function parseCollegeMajorCsv(text) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=29").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=31").catch(() => {}));
 }
 
 async function boot() {
