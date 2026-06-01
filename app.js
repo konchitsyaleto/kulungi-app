@@ -216,6 +216,7 @@ const state = {
   selectedParty: "",
   selectedFeatures: [],
   loungeSearch: "",
+  loungeSearchDraft: "",
   selectedCampus: "",
   selectedBuildings: [],
   departureMode: "now",
@@ -778,7 +779,7 @@ function renderHome() {
         <div class="brand">kulungi</div>
         <h1 data-home-summary>${summaryTitle()}</h1>
         <div class="search-bar split-search">
-          <input class="search-main lounge-search-input" data-lounge-search value="${escapeHtml(state.loungeSearch)}" placeholder="라운지 검색" aria-label="라운지 검색" />
+          <input class="search-main lounge-search-input" data-lounge-search value="${escapeHtml(state.loungeSearchDraft || state.loungeSearch)}" placeholder="라운지 검색" aria-label="라운지 검색" />
           <button class="preset-trigger" data-route="search"><span>상세 검색</span>${icon("chevron")}</button>
         </div>
         ${renderSortControls()}
@@ -2180,13 +2181,15 @@ function bindEvents() {
     render();
   });
   document.querySelector("[data-lounge-search]")?.addEventListener("input", (event) => {
-    state.loungeSearch = event.currentTarget.value;
-    if (event.isComposing) return;
-    updateHomeSearchResults();
+    state.loungeSearchDraft = event.currentTarget.value;
   });
-  document.querySelector("[data-lounge-search]")?.addEventListener("compositionend", (event) => {
-    state.loungeSearch = event.currentTarget.value;
+  document.querySelector("[data-lounge-search]")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    state.loungeSearch = event.currentTarget.value.trim();
+    state.loungeSearchDraft = event.currentTarget.value;
     updateHomeSearchResults();
+    event.currentTarget.blur();
   });
   document.querySelectorAll("[data-auth-route]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2482,6 +2485,7 @@ function bindEvents() {
     state.selectedParty = "";
     state.selectedFeatures = [];
     state.loungeSearch = "";
+    state.loungeSearchDraft = "";
     state.selectedCampus = "";
     state.selectedBuildings = [];
     state.departureMode = "now";
@@ -2633,7 +2637,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=57").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=58").catch(() => {}));
 }
 
 async function boot() {
