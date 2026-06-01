@@ -201,7 +201,6 @@ let collegeMajorData = [];
 let seatSimulationData = null;
 const blueprintCache = {};
 let mascotAudio = null;
-let loungeSearchTimer = null;
 
 if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
 const campuses = buildCampuses(lounges);
@@ -456,10 +455,10 @@ function summaryTitle() {
   return "지금 추천드리는 라운지예요";
 }
 
-function filteredLounges() {
+function filteredLounges(includeSearch = true) {
   let result = lounges.map(simulateLounge);
   const query = state.loungeSearch.trim().toLowerCase();
-  if (query) result = result.filter((lounge) => lounge.name.toLowerCase().includes(query));
+  if (includeSearch && query) result = result.filter((lounge) => lounge.name.toLowerCase().includes(query));
   if (state.favoritesOnly) result = result.filter((lounge) => state.favorites.has(lounge.id));
   if (state.selectedCampus && !state.selectedBuildings.length) result = result.filter((lounge) => lounge.campus === state.selectedCampus);
   if (state.selectedBuildings.length) result = result.filter((lounge) => state.selectedBuildings.includes(lounge.building));
@@ -589,6 +588,7 @@ function render() {
   };
   app.innerHTML = `<main class="phone-shell">${renderAdminTimeBar()}${views[state.route]()}</main>${renderModal()}`;
   bindEvents();
+  if (state.route === "home") updateHomeSearchResults();
   alignTimePicker();
   initSeatingPlans();
   adjustHeroTone();
@@ -771,7 +771,7 @@ function adjustHeroTone() {
 }
 
 function renderHome() {
-  const loungesToShow = filteredLounges();
+  const loungesToShow = filteredLounges(false);
   return `
     <section class="screen with-tabbar">
       <header class="home-header">
@@ -785,6 +785,7 @@ function renderHome() {
       </header>
       <div class="lounge-list" data-lounge-list>
         ${renderHomeResults(loungesToShow)}
+        <div class="empty" data-search-empty hidden>조건에 맞는 라운지가 아직 없어요.</div>
       </div>
       ${renderTabbar()}
     </section>
@@ -811,7 +812,7 @@ function renderSortControls() {
 function renderLoungeCard(lounge) {
   const isFavorite = state.favorites.has(lounge.id);
   return `
-    <article class="lounge-card-wrap">
+    <article class="lounge-card-wrap" data-lounge-card-name="${escapeHtml(lounge.name.toLowerCase())}">
       <div class="lounge-card" data-open-lounge="${lounge.id}" role="button" tabindex="0">
         <div class="thumb" style="background:${lounge.thumbnail}"><span>라운지 사진</span></div>
         <div class="card-info">
@@ -2129,14 +2130,16 @@ function updateHomeSearchResults() {
   const title = document.querySelector("[data-home-summary]");
   const list = document.querySelector("[data-lounge-list]");
   if (!title || !list) return;
+  const query = state.loungeSearch.trim().toLowerCase();
+  let visibleCount = 0;
   title.textContent = summaryTitle();
-  list.innerHTML = renderHomeResults();
-  bindLoungeListEvents(list);
-}
-
-function scheduleHomeSearchResults() {
-  window.clearTimeout(loungeSearchTimer);
-  loungeSearchTimer = window.setTimeout(updateHomeSearchResults, 220);
+  list.querySelectorAll("[data-lounge-card-name]").forEach((card) => {
+    const visible = !query || card.dataset.loungeCardName.includes(query);
+    card.hidden = !visible;
+    if (visible) visibleCount += 1;
+  });
+  const empty = list.querySelector("[data-search-empty]");
+  if (empty) empty.hidden = visibleCount > 0;
 }
 
 function bindLoungeListEvents(root = document) {
@@ -2178,11 +2181,11 @@ function bindEvents() {
   document.querySelector("[data-lounge-search]")?.addEventListener("input", (event) => {
     state.loungeSearch = event.currentTarget.value;
     if (event.isComposing) return;
-    scheduleHomeSearchResults();
+    updateHomeSearchResults();
   });
   document.querySelector("[data-lounge-search]")?.addEventListener("compositionend", (event) => {
     state.loungeSearch = event.currentTarget.value;
-    scheduleHomeSearchResults();
+    updateHomeSearchResults();
   });
   document.querySelectorAll("[data-auth-route]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2629,7 +2632,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=55").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=56").catch(() => {}));
 }
 
 async function boot() {
