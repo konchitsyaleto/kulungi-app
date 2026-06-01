@@ -190,6 +190,7 @@ const adminNicknames = ["윤서"];
 const allowedNicknames = ["비플렉스", "강소은", "다인", "주리", "테스트2"];
 let collegeMajorData = [];
 let seatSimulationData = null;
+const blueprintCache = {};
 
 if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
 const campuses = buildCampuses(lounges);
@@ -1058,6 +1059,10 @@ function initSeatingPlans() {
 async function renderImageSeatPlan(container, canvas) {
   const code = container.dataset.seatingPlan;
   const crowd = numberValue(container.dataset.crowd, 50);
+  if (code === "10001") {
+    await renderBlueprintSeatPlan(container, canvas, code);
+    return;
+  }
   const fallback = seatingFallbackPrefix(getSelectedLounge());
   const [outletsImage, tablesImage, chairsImage] = await Promise.all([
     loadPlanLayer(code, fallback, "E"),
@@ -1102,6 +1107,110 @@ async function loadPlanLayer(code, fallback, type) {
     }
   }
   return null;
+}
+
+async function renderBlueprintSeatPlan(container, canvas, code) {
+  const blueprint = await loadBlueprint(code);
+  const timeKey = currentBlueprintTimeKey(blueprint.timeKeys);
+  const scaleX = 160;
+  const scaleY = 120;
+  const objects = [
+    ...blueprint.chairs.map((item) => ({
+      kind: "chair",
+      src: `${item.type}_${String(item.direction).padStart(2, "0")}.png`,
+      stateSrc: `${item.type}_${String(item.direction).padStart(2, "0")}-${item[timeKey] === "1" ? "02" : "00"}.png`,
+      x: numberValue(item.pos_x) * scaleX,
+      bottomY: numberValue(item.pos_y) * scaleY,
+      sortY: numberValue(item.pos_y),
+    })),
+    ...blueprint.tables.map((item) => ({
+      kind: "table",
+      src: `${item.type}.png`,
+      stateSrc: `${item.type}-00.png`,
+      x: numberValue(item.pos_x) * scaleX,
+      bottomY: numberValue(item.pos_y) * scaleY,
+      sortY: numberValue(item.pos_y),
+    })),
+  ];
+  const outlets = blueprint.outlets.map((item) => ({
+    kind: "outlet",
+    src: "E1.png",
+    stateSrc: "E1-00.png",
+    x: numberValue(item.pos_x) * scaleX,
+    bottomY: numberValue(item.pos_y) * scaleY - 60,
+    sortY: Number.POSITIVE_INFINITY,
+  }));
+  const all = [...objects, ...outlets];
+  const images = await Promise.all(all.flatMap((item) => [loadImage(`./objects/${item.stateSrc}`), loadImage(`./objects/${item.src}`)]));
+  all.forEach((item, index) => {
+    item.stateImage = images[index * 2];
+    item.image = images[index * 2 + 1];
+    item.width = Math.max(item.stateImage.width, item.image.width);
+    item.height = Math.max(item.stateImage.height, item.image.height);
+    item.y = item.bottomY - item.height;
+  });
+  const width = Math.ceil(Math.max(...all.map((item) => item.x + item.width), 1));
+  const height = Math.ceil(Math.max(...all.map((item) => item.bottomY), 1));
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  canvas.style.aspectRatio = `${width} / ${height}`;
+  const context = canvas.getContext("2d");
+  context.scale(ratio, ratio);
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  all
+    .sort((a, b) => {
+      if (a.kind === "outlet" && b.kind !== "outlet") return 1;
+      if (a.kind !== "outlet" && b.kind === "outlet") return -1;
+      return a.sortY - b.sortY;
+    })
+    .forEach((item) => {
+      context.drawImage(item.stateImage, item.x, item.y);
+      context.drawImage(item.image, item.x, item.y);
+    });
+  container.classList.add("ready");
+  const loading = container.querySelector(".seat-plan-loading");
+  if (loading) loading.textContent = `${blueprint.chairs.length}개 좌석을 표시했어요`;
+}
+
+async function loadBlueprint(code) {
+  if (blueprintCache[code]) return blueprintCache[code];
+  const [chairsText, tablesText, outletsText] = await Promise.all([
+    fetch(`./blueprint/${code}-C.csv`).then((response) => response.text()),
+    fetch(`./blueprint/${code}-T.csv`).then((response) => response.text()),
+    fetch(`./blueprint/${code}-E.csv`).then((response) => response.text()),
+  ]);
+  const chairs = parseBlueprintCsv(chairsText);
+  const tables = parseBlueprintCsv(tablesText);
+  const outlets = parseBlueprintCsv(outletsText);
+  const timeKeys = Object.keys(chairs[0] || {}).filter((key) => /^\d{1,2}:\d{2}$/.test(key));
+  blueprintCache[code] = { chairs, tables, outlets, timeKeys };
+  return blueprintCache[code];
+}
+
+function parseBlueprintCsv(text) {
+  const lines = text.trim().split(/\r?\n/).map((line) => line.replace(/^\uFEFF/, ""));
+  const headerIndex = lines.findIndex((line) => /^(seat|table|Elec),/.test(line));
+  if (headerIndex < 0) return [];
+  const headers = lines[headerIndex].split(",").map((item) => item.trim());
+  return lines.slice(headerIndex + 1).filter(Boolean).map((line) => {
+    const cells = line.split(",");
+    return headers.reduce((row, header, index) => {
+      row[header] = cells[index]?.trim() || "";
+      return row;
+    }, {});
+  });
+}
+
+function currentBlueprintTimeKey(timeKeys) {
+  if (!timeKeys.length) return "";
+  const now = new Date();
+  const minutes = Math.round((now.getHours() * 60 + now.getMinutes()) / 5) * 5;
+  const key = `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
+  if (timeKeys.includes(key)) return key;
+  return timeKeys.reduce((best, item) => Math.abs(timeLabelToMinutes(item) - minutes) < Math.abs(timeLabelToMinutes(best) - minutes) ? item : best, timeKeys[0]);
 }
 
 function seatingFallbackPrefix(lounge) {
@@ -2233,7 +2342,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=40").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=41").catch(() => {}));
 }
 
 async function boot() {
