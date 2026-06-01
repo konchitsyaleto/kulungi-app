@@ -1,3 +1,5 @@
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
 const TONE = {
   good: 1,
   warn: 2,
@@ -176,6 +178,14 @@ const featureOptions = ["밝음", "어두움", "조용함", "딱딱한 좌석", 
 const AUTH_USERS_KEY = "kulungi-users-v1";
 const AUTH_SESSION_KEY = "kulungi-session-v1";
 const AUTH_GUEST_KEY = "kulungi-guest-v1";
+const SUPABASE_URL = "https://fdnpthvvhpfoniogmyns.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_5bVTx2uUwmkJ31x3BpY6vA_VPRgVDjA";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
 const adminNicknames = ["윤서"];
 let collegeMajorData = [];
 
@@ -295,19 +305,80 @@ function persistCurrentUser() {
   if (!state.currentUser) return;
   const users = readUsers();
   const user = users[state.currentUser];
-  if (!user) return;
-  user.profile = { ...state.profile, saved: false };
-  user.favorites = [...state.favorites];
-  user.presets = state.presets;
-  user.role = adminNicknames.includes(user.nickname) ? "admin" : user.role || "user";
-  users[state.currentUser] = user;
-  writeUsers(users);
+  if (user) {
+    user.profile = { ...state.profile, saved: false };
+    user.favorites = [...state.favorites];
+    user.presets = state.presets;
+    user.role = adminNicknames.includes(user.nickname) ? "admin" : user.role || "user";
+    users[state.currentUser] = user;
+    writeUsers(users);
+  }
+  syncSupabaseUserData().catch(() => {});
 }
 
 async function passwordHash(password) {
   const bytes = new TextEncoder().encode(password);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function nicknameToAuthEmail(nickname) {
+  const encoded = [...new TextEncoder().encode(nickname)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `u_${encoded}@kulungi.app`;
+}
+
+async function restoreSupabaseSession() {
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  if (!user) return;
+  await loadSupabaseUserData(user);
+  localStorage.removeItem(AUTH_GUEST_KEY);
+  state.route = "home";
+}
+
+async function loadSupabaseUserData(user) {
+  const nickname = user.user_metadata?.nickname || state.currentUser || "쿠룽지 친구";
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  const { data: admin } = await supabase.from("admins").select("user_id").eq("user_id", user.id).maybeSingle();
+  const { data: favorites } = await supabase.from("favorites").select("lounge_id").eq("user_id", user.id);
+  const { data: presets } = await supabase.from("presets").select("name, config").eq("user_id", user.id).order("created_at", { ascending: true });
+  state.currentUser = nickname;
+  state.isGuest = false;
+  state.profile = {
+    ...state.profile,
+    name: profile?.nickname || nickname,
+    college: profile?.college || state.profile.college,
+    department: profile?.department || state.profile.department,
+    photo: profile?.photo || "",
+    role: admin ? "admin" : "user",
+    saved: false,
+  };
+  state.favorites = new Set(favorites?.length ? favorites.map((item) => item.lounge_id) : defaultFavorites);
+  state.presets = presets?.length ? presets.map((item) => ({ name: item.name, ...item.config })) : [...defaultPresets];
+}
+
+async function syncSupabaseUserData() {
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
+  if (!user) return;
+  await supabase.from("profiles").upsert({
+    id: user.id,
+    nickname: state.profile.name,
+    college: state.profile.college,
+    department: state.profile.department,
+    photo: state.profile.photo,
+    updated_at: new Date().toISOString(),
+  });
+  await supabase.from("favorites").delete().eq("user_id", user.id);
+  if (state.favorites.size) {
+    await supabase.from("favorites").insert([...state.favorites].map((loungeId) => ({ user_id: user.id, lounge_id: loungeId })));
+  }
+  await supabase.from("presets").delete().eq("user_id", user.id);
+  if (state.presets.length) {
+    await supabase.from("presets").insert(state.presets.map((preset) => ({ user_id: user.id, name: preset.name, config: preset })));
+  }
 }
 
 function colleges() {
@@ -1651,6 +1722,18 @@ function bindEvents() {
       render();
       return;
     }
+    const { data, error } = await supabase.auth.signUp({
+      email: nicknameToAuthEmail(nickname),
+      password,
+      options: {
+        data: { nickname },
+      },
+    });
+    if (error) {
+      state.authError = error.message || "회원가입에 실패했습니다.";
+      render();
+      return;
+    }
     const user = {
       nickname,
       passwordHash: await passwordHash(password),
@@ -1664,6 +1747,7 @@ function bindEvents() {
     localStorage.setItem(AUTH_SESSION_KEY, nickname);
     localStorage.removeItem(AUTH_GUEST_KEY);
     applyUser(user);
+    if (data.user) await syncSupabaseUserData();
     state.route = "home";
     state.authError = "";
     render();
@@ -1673,15 +1757,26 @@ function bindEvents() {
     const form = new FormData(event.currentTarget);
     const nickname = form.get("nickname")?.toString().trim();
     const password = form.get("password")?.toString();
-    const user = readUsers()[nickname];
-    if (!user || user.passwordHash !== await passwordHash(password || "")) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: nicknameToAuthEmail(nickname || ""),
+      password: password || "",
+    });
+    if (error || !data.user) {
       state.authError = "닉네임이나 비밀번호를 확인해주세요.";
       render();
       return;
     }
+    const user = readUsers()[nickname] || {
+      nickname,
+      role: adminNicknames.includes(nickname) ? "admin" : "user",
+      profile: { name: nickname, college: state.profile.college, department: state.profile.department, photo: "", saved: false, role: adminNicknames.includes(nickname) ? "admin" : "user" },
+      favorites: defaultFavorites,
+      presets: defaultPresets,
+    };
     localStorage.setItem(AUTH_SESSION_KEY, nickname);
     localStorage.removeItem(AUTH_GUEST_KEY);
     applyUser(user);
+    await loadSupabaseUserData(data.user);
     state.route = "home";
     state.authError = "";
     render();
@@ -1951,8 +2046,13 @@ function parseCollegeMajorCsv(text) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=25").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=26").catch(() => {}));
 }
 
-loadCollegeMajorData();
-render();
+async function boot() {
+  await loadCollegeMajorData();
+  await restoreSupabaseSession();
+  render();
+}
+
+boot();
