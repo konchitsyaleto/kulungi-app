@@ -223,6 +223,7 @@ const allowedNicknames = ["비플렉스", "강소은", "다인", "주리", "테�
 let collegeMajorData = [];
 let seatSimulationData = null;
 const blueprintCache = {};
+const seatAvailabilityCache = {};
 let mascotAudio = null;
 let maxCrowdValue = 100;
 
@@ -1146,10 +1147,11 @@ function simulateLounge(lounge) {
   const currentCrowd = currentCrowdValue(lounge.crowdByTime || [], lounge.currentCrowd || numberValue(lounge.raw?.default_populous, 0.5) * 100, activeMinutes);
   const currentCrowdNormalized = clamp(currentCrowd / Math.max(maxCrowdValue, 1), 0, 1);
   const crowdMetric = crowdMetricFromScore(crowdScoreFromValue(currentCrowd));
-  const predictedHasSeat = isOpenAt(lounge.raw || {}, activeMinutes) && currentCrowdNormalized < 0.92;
-  const sitMetric = seatMetricFromAvailability(predictedHasSeat, numberValue(lounge.raw?.usage_time, 60));
-  const chargeCount = lounge.chargeAvailable ? Math.max(0, Math.round((1 - currentCrowdNormalized) * 4)) : 0;
-  const chargeMetric = chargeMetricFromAvailability(lounge.chargeAvailable, chargeCount, lounge.chargeAvailable ? 4 : 0);
+  const cachedSeats = seatAvailabilityFor(lounge);
+  const estimatedSeats = estimatedSeatAvailability(lounge, currentCrowdNormalized, activeMinutes);
+  const seatAvailability = cachedSeats || estimatedSeats;
+  const sitMetric = seatMetricFromAvailability(seatAvailability.availableSeats > 0, numberValue(lounge.raw?.usage_time, 60));
+  const chargeMetric = chargeMetricFromAvailability(lounge.chargeAvailable, seatAvailability.availableOutlets, seatAvailability.totalOutlets);
   const noiseMetric = noiseMetricFromValue(currentNoiseValue(lounge.raw || {}, activeMinutes));
   return {
     ...lounge,
@@ -1163,6 +1165,40 @@ function simulateLounge(lounge) {
       { key: "sit", label: "자리 유무", value: sitMetric.value, tone: sitMetric.tone, detail: "" },
       { key: "charge", label: "콘센트", value: chargeMetric.value, tone: chargeMetric.tone, detail: "" },
     ],
+  };
+}
+
+function seatAvailabilityFor(lounge) {
+  try {
+    const key = seatAvailabilityKey(lounge.code);
+    return seatAvailabilityCache[key] || null;
+  } catch {
+    return null;
+  }
+}
+
+function seatAvailabilityKey(code) {
+  let time;
+  try {
+    time = simulationTimeValue();
+  } catch {
+    const minutes = currentClockMinutes();
+    time = `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+  }
+  return `${code || "unknown"}-${normalizedPopulousKey(time)}`;
+}
+
+function estimatedSeatAvailability(lounge, currentCrowdNormalized, activeMinutes) {
+  if (!isOpenAt(lounge.raw || {}, activeMinutes)) {
+    return { availableSeats: 0, totalSeats: 0, availableOutlets: 0, totalOutlets: lounge.chargeAvailable ? 1 : 0 };
+  }
+  const seatCount = currentCrowdNormalized >= 0.92 ? 0 : Math.max(1, Math.round(24 * (1 - currentCrowdNormalized)));
+  const outletTotal = lounge.chargeAvailable ? 4 : 0;
+  return {
+    availableSeats: seatCount,
+    totalSeats: 24,
+    availableOutlets: outletTotal ? Math.max(0, Math.round(outletTotal * (1 - currentCrowdNormalized))) : 0,
+    totalOutlets: outletTotal,
   };
 }
 
@@ -1293,9 +1329,26 @@ async function renderImageSeatPlan(container, canvas) {
   if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
   if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
   if (outletsImage && state.showOutlets) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
+  const cacheKey = seatAvailabilityKey(code);
+  const previousAvailability = seatAvailabilityCache[cacheKey];
+  const nextAvailability = {
+    availableSeats: simulation.availableSeats,
+    totalSeats: simulation.totalSeats,
+    availableOutlets: simulation.availableOutlets,
+    totalOutlets: simulation.totalOutlets,
+  };
+  seatAvailabilityCache[cacheKey] = nextAvailability;
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
   if (loading) loading.textContent = simulation.availableSeats ? `자리가 ${simulation.availableSeats}석 남았어요` : "지금은 앉을 수 있는 자리가 없어요";
+  if (!container.closest(".seat-plan-modal") && state.route === "detail" && availabilityChanged(previousAvailability, nextAvailability)) {
+    window.setTimeout(render, 0);
+  }
+}
+
+function availabilityChanged(previous, next) {
+  if (!previous) return true;
+  return previous.availableSeats !== next.availableSeats || previous.totalSeats !== next.totalSeats || previous.availableOutlets !== next.availableOutlets || previous.totalOutlets !== next.totalOutlets;
 }
 
 function deterministicSeatSimulation(code, lounge, chairs, tables, outlets, crowdFallback) {
@@ -1325,7 +1378,9 @@ function deterministicSeatSimulation(code, lounge, chairs, tables, outlets, crow
     tables: tableStates,
     outlets: outletStates,
     availableSeats: restrictedChairs.filter((chair) => chair.state === "good").length,
+    totalSeats: restrictedChairs.length,
     availableOutlets: outletStates.filter((outlet) => outlet.state === "good").length,
+    totalOutlets: outletStates.length,
   };
 }
 
@@ -1647,7 +1702,7 @@ function detectBoxes(image) {
     const offset = (y * width + x) * 4;
     const alpha = data[offset + 3];
     const brightness = (data[offset] + data[offset + 1] + data[offset + 2]) / 3;
-    return alpha > 20 && brightness < 245;
+    return alpha > 20 && brightness < 252;
   };
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -1737,6 +1792,7 @@ function timeLabelToMinutes(label) {
 }
 
 function tintLayer(targetContext, image, boxes, width, height, layerType) {
+  const visibleBoxes = boxes.length ? boxes : [{ x: 0, y: 0, w: width, h: height, state: "good" }];
   const source = document.createElement("canvas");
   source.width = width;
   source.height = height;
@@ -1744,7 +1800,7 @@ function tintLayer(targetContext, image, boxes, width, height, layerType) {
   sourceContext.drawImage(image, 0, 0);
   const imageData = sourceContext.getImageData(0, 0, width, height);
   const data = imageData.data;
-  boxes.forEach((box) => {
+  visibleBoxes.forEach((box) => {
     const [r, g, b] = hexToRgb(stateColor(box.state));
     for (let y = Math.max(0, box.y); y < Math.min(height, box.y + box.h); y += 1) {
       for (let x = Math.max(0, box.x); x < Math.min(width, box.x + box.w); x += 1) {
@@ -1773,14 +1829,22 @@ function tintLayer(targetContext, image, boxes, width, height, layerType) {
     table: 2,
     outlet: 2,
   }[layerType] || 2;
+  visibleBoxes.forEach((box) => {
+    targetContext.save();
+    targetContext.globalAlpha = layerType === "table" ? 0.46 : layerType === "outlet" ? 0.58 : 0.5;
+    targetContext.fillStyle = stateColor(box.state);
+    roundRect(targetContext, box.x - 2, box.y - 2, box.w + 4, box.h + 4, Math.min(10, Math.max(4, Math.min(box.w, box.h) / 4)));
+    targetContext.fill();
+    targetContext.restore();
+  });
   targetContext.drawImage(source, 0, 0);
   targetContext.restore();
 }
 
 function stateColor(state) {
-  if (state === "bad") return "#ffb3ba";
-  if (state === "warn") return "#ffffba";
-  return "#baffc9";
+  if (state === "bad") return "#ef4444";
+  if (state === "warn") return "#facc15";
+  return "#22c55e";
 }
 
 function hexToRgb(hex) {
@@ -2859,7 +2923,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=60").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=61").catch(() => {}));
 }
 
 async function boot() {
