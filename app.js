@@ -775,19 +775,23 @@ function renderHome() {
     <section class="screen with-tabbar">
       <header class="home-header">
         <div class="brand">kulungi</div>
-        <h1>${summaryTitle()}</h1>
+        <h1 data-home-summary>${summaryTitle()}</h1>
         <div class="search-bar split-search">
           <input class="search-main lounge-search-input" data-lounge-search value="${escapeHtml(state.loungeSearch)}" placeholder="라운지 검색" aria-label="라운지 검색" />
           <button class="preset-trigger" data-route="search"><span>상세 검색</span>${icon("chevron")}</button>
         </div>
         ${renderSortControls()}
       </header>
-      <div class="lounge-list">
-        ${loungesToShow.length ? loungesToShow.map(renderLoungeCard).join("") : `<div class="empty">조건에 맞는 라운지가 아직 없어요.</div>`}
+      <div class="lounge-list" data-lounge-list>
+        ${renderHomeResults(loungesToShow)}
       </div>
       ${renderTabbar()}
     </section>
   `;
+}
+
+function renderHomeResults(loungesToShow = filteredLounges()) {
+  return loungesToShow.length ? loungesToShow.map(renderLoungeCard).join("") : `<div class="empty">조건에 맞는 라운지가 아직 없어요.</div>`;
 }
 
 function renderSortControls() {
@@ -2120,6 +2124,42 @@ function renderModal() {
   `;
 }
 
+function updateHomeSearchResults() {
+  const title = document.querySelector("[data-home-summary]");
+  const list = document.querySelector("[data-lounge-list]");
+  if (!title || !list) return;
+  title.textContent = summaryTitle();
+  list.innerHTML = renderHomeResults();
+  bindLoungeListEvents(list);
+}
+
+function bindLoungeListEvents(root = document) {
+  root.querySelectorAll("[data-route]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      state.route = button.dataset.route;
+      state.activeMetric = null;
+      render();
+    });
+  });
+  root.querySelectorAll("[data-open-lounge]").forEach((card) => {
+    card.addEventListener("click", () => {
+      state.selectedLoungeId = card.dataset.openLounge;
+      state.route = "detail";
+      render();
+    });
+  });
+  root.querySelectorAll("[data-favorite]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const id = button.dataset.favorite;
+      state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
+      persistCurrentUser();
+      render();
+    });
+  });
+}
+
 function bindEvents() {
   document.querySelector("[data-simulation-time]")?.addEventListener("change", (event) => {
     state.simulationTime = event.currentTarget.value;
@@ -2132,11 +2172,11 @@ function bindEvents() {
   document.querySelector("[data-lounge-search]")?.addEventListener("input", (event) => {
     state.loungeSearch = event.currentTarget.value;
     if (event.isComposing) return;
-    render();
+    updateHomeSearchResults();
   });
   document.querySelector("[data-lounge-search]")?.addEventListener("compositionend", (event) => {
     state.loungeSearch = event.currentTarget.value;
-    render();
+    updateHomeSearchResults();
   });
   document.querySelectorAll("[data-auth-route]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2583,7 +2623,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=53").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=54").catch(() => {}));
 }
 
 async function boot() {
