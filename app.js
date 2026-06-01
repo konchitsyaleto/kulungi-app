@@ -201,6 +201,7 @@ let collegeMajorData = [];
 let seatSimulationData = null;
 const blueprintCache = {};
 let mascotAudio = null;
+let loungeSearchTimer = null;
 
 if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
 const campuses = buildCampuses(lounges);
@@ -2133,6 +2134,11 @@ function updateHomeSearchResults() {
   bindLoungeListEvents(list);
 }
 
+function scheduleHomeSearchResults() {
+  window.clearTimeout(loungeSearchTimer);
+  loungeSearchTimer = window.setTimeout(updateHomeSearchResults, 220);
+}
+
 function bindLoungeListEvents(root = document) {
   root.querySelectorAll("[data-route]").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -2172,11 +2178,11 @@ function bindEvents() {
   document.querySelector("[data-lounge-search]")?.addEventListener("input", (event) => {
     state.loungeSearch = event.currentTarget.value;
     if (event.isComposing) return;
-    updateHomeSearchResults();
+    scheduleHomeSearchResults();
   });
   document.querySelector("[data-lounge-search]")?.addEventListener("compositionend", (event) => {
     state.loungeSearch = event.currentTarget.value;
-    updateHomeSearchResults();
+    scheduleHomeSearchResults();
   });
   document.querySelectorAll("[data-auth-route]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2623,7 +2629,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=54").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=55").catch(() => {}));
 }
 
 async function boot() {
