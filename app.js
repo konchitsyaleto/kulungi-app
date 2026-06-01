@@ -493,49 +493,48 @@ function filteredLounges(includeSearch = true) {
 }
 
 function sortLounges(a, b) {
-  if (state.sortMode === "crowd") return a.currentCrowd - b.currentCrowd || scoreLounge(b) - scoreLounge(a);
-  if (state.sortMode === "distance") return Number(a.distance.replace(/\D/g, "")) - Number(b.distance.replace(/\D/g, ""));
+  const minutes = selectedUseMinutes();
+  if (state.sortMode === "crowd") return currentCrowdValue(a.crowdByTime || [], a.currentCrowd || 0, minutes) - currentCrowdValue(b.crowdByTime || [], b.currentCrowd || 0, minutes) || scoreLounge(b) - scoreLounge(a);
+  if (state.sortMode === "distance") return a.distanceM - b.distanceM || scoreLounge(b) - scoreLounge(a);
   return scoreLounge(b) - scoreLounge(a);
 }
 
 function scoreLounge(lounge) {
-  const congestion = clamp(lounge.currentCrowd / Math.max(maxCrowdValue, 1), 0, 1);
-  const seatAvailability = clamp(1 - congestion, 0, 1);
-  const outletAvailability = lounge.chargeAvailable ? clamp(0.85 - congestion * 0.35, 0.35, 0.9) : 0.05;
-  const availability = 0.5 * seatAvailability + 0.3 * (1 - congestion) + 0.2 * outletAvailability;
+  const minutes = selectedUseMinutes();
+  const score = recommendationScoreAt(lounge, minutes);
+  return score * 100;
+}
+
+function recommendationScoreAt(lounge, minutes) {
+  const crowdValue = currentCrowdValue(lounge.crowdByTime || [], lounge.currentCrowd || 0, minutes);
+  const congestionScore = crowdScoreFromValue(crowdValue);
+  const seatScore = seatAvailabilityAt(lounge, minutes).availableSeats > 0 ? 1 : 0;
+  const availability = seatScore * 0.5 + congestionScore * 0.5;
   const purposeFit = purposeFitScore(lounge);
-  const maxDistance = Math.max(...lounges.map((item) => item.distanceM || 1));
-  const distanceScore = clamp(1 - (lounge.distanceM || maxDistance) / maxDistance, 0, 1);
-  const userPreference = state.selectedCampus && state.selectedCampus === lounge.campus ? 0.75 : 0.45;
-  const noiseFit = selectedWantsQuiet() ? quietness(lounge) : moderateNoise(lounge);
-  const brightnessFit = brightnessPreference(lounge);
-  const environmentFit = 0.3 * noiseFit + 0.25 * brightnessFit + 0.25 * (1 - congestion) + 0.2 * (1 - congestion);
-  const favorite = state.favorites.has(lounge.id) ? 1 : 0;
-  const hardPenalty = requiredConditionFit(lounge) < 0.5 ? 0.25 : 1;
-  const partyFit = partyFitScore(lounge);
-  return 100 * (0.28 * availability + 0.24 * purposeFit + 0.14 * distanceScore + 0.14 * userPreference + 0.1 * environmentFit + 0.05 * favorite + 0.05 * partyFit) * hardPenalty;
+  const distanceScore = clamp(1 - (lounge.distanceM || 0) / 1908, 0, 1);
+  return clamp(availability * 0.4 + purposeFit * 0.3 + distanceScore * 0.15 + 0.15, 0, 1);
 }
 
 function purposeFitScore(lounge) {
-  const purposes = state.selectedPurpose.length ? state.selectedPurpose : ["공부"];
-  const scores = purposes.map((purpose) => {
-    const congestionFit = 1 - clamp(lounge.currentCrowd / Math.max(maxCrowdValue, 1), 0, 1);
-    const outlet = lounge.chargeAvailable ? 0.85 : 0.05;
-    const quiet = quietness(lounge);
-    const tableText = lounge.tableTypes.join(" ");
-    const infraText = lounge.infrastructure.join(" ");
-    const hasGroupSeat = /4인|6인|다인|소파|테이블/.test(tableText) ? 1 : 0.35;
-    const hasDesk = /테이블|책상|1인/.test(tableText) ? 1 : 0.45;
-    const hasSofa = /소파|라운지|계단/.test(tableText + lounge.raw.default_type) ? 1 : 0.3;
-    const tableAvailability = tableText ? 0.8 : 0.55;
-    const facility = selectedFeaturesFit(lounge);
-    if (purpose === "팀플") return 0.3 * hasGroupSeat + 0.25 * moderateNoise(lounge) + 0.2 * tableAvailability + 0.15 * outlet + 0.1 * moderateNoise(lounge);
-    if (purpose === "짧은 휴식" || purpose === "잠") return 0.35 * hasSofa + 0.25 * congestionFit + 0.2 * quiet + 0.1 * comfortableLighting(lounge) + 0.1 * congestionFit;
-    if (purpose === "취식" || purpose === "식사") return 0.4 * (lounge.eatingAllowed ? 1 : 0) + 0.25 * tableAvailability + 0.15 * moderateNoise(lounge) + 0.1 * (infraText.includes("휴지통") ? 1 : 0.45) + 0.1 * congestionFit;
-    if (purpose === "노트북 사용") return 0.35 * outlet + 0.25 * hasDesk + 0.2 * quiet + 0.1 * brightnessPreference(lounge) + 0.1 * congestionFit;
-    return 0.35 * quiet + 0.25 * outlet + 0.2 * hasDesk + 0.1 * brightnessPreference(lounge) + 0.1 * congestionFit;
-  });
-  return clamp(scores.reduce((sum, score) => sum + score, 0) / scores.length, 0, 1);
+  const filters = selectedRecommendationFilters();
+  if (!filters.length) return 1;
+  return clamp(filters.reduce((sum, filter) => sum + filterScore(lounge, filter), 0) / filters.length, 0, 1);
+}
+
+function selectedRecommendationFilters() {
+  return [...new Set([state.selectedParty, ...state.selectedFeatures].filter(Boolean))];
+}
+
+function filterScore(lounge, filter) {
+  if (filter === "조용함") return noiseLevelValue(lounge) === 1 ? 1 : 0;
+  if (filter === "대화 가능") return noiseLevelValue(lounge) === 2 ? 1 : 0;
+  const partyField = { "혼자": "alone", "둘이": "two", "서너명": "threefour", "다섯명 이상": "fiveormore" }[filter];
+  const field = partyField || featureFieldMap[filter] || filter;
+  return flagValue(lounge.raw?.[field]) ? 1 : 0;
+}
+
+function noiseLevelValue(lounge) {
+  return numberValue(lounge.raw?.noise_level ?? lounge.raw?.["noise level"], 0);
 }
 
 function requiredConditionFit(lounge) {
@@ -600,13 +599,7 @@ function comfortableLighting(lounge) {
 }
 
 function recommendationPercent(lounge) {
-  const currentLounge = simulateLounge(lounge);
-  const candidates = lounges.map(simulateLounge).filter((item) => (!state.favoritesOnly || state.favorites.has(item.id)) && (!state.selectedBuildings.length || state.selectedBuildings.includes(item.building)));
-  const scores = candidates.map(scoreLounge);
-  const min = Math.min(...scores);
-  const max = Math.max(...scores);
-  if (max === min) return 100;
-  return Math.round(((scoreLounge(currentLounge) - min) / (max - min)) * 100);
+  return Math.round(scoreLounge(simulateLounge(lounge)));
 }
 
 function render() {
@@ -640,7 +633,7 @@ function accessBlocked() {
 }
 
 function canAccessProject() {
-  return state.isGuest || allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser) || state.profile.role === "admin";
+  return allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser) || state.profile.role === "admin";
 }
 
 function isSimulationAdmin() {
@@ -879,6 +872,7 @@ function renderLoungeCard(lounge) {
           </div>
           <p>${lounge.building} ${lounge.floor} · ${lounge.distance}</p>
           <strong class="status mark-${lounge.statusTone}">${statusText[lounge.status]}</strong>
+          ${lounge.recommended ? `<em class="arrival-seat-note">지금 가면 앉을 수 있어요</em>` : ""}
           <div class="tags scroll-tags">${lounge.tags.map((tag) => `<span>${tag}</span>`).join("")}</div>
         </div>
       </div>
@@ -969,9 +963,9 @@ function buildLounges(rows) {
       name: row.lounge_name || `${row.building || "건물"} 라운지`,
       building: row.building || "건물 미정",
       floor: row.lounge_floor || "층수 미정",
-      distance: distanceM ? `${distanceM}m` : "거리 미정",
+      distance: formatDistance(distanceM),
       distanceM,
-      walkMinutes: Math.max(2, Math.round(distanceM / 70)),
+      walkMinutes: arrivalMinutes(distanceM),
       favorite: false,
       recommended: crowdMetric.tone !== "bad",
       recommendation: 0,
@@ -990,6 +984,7 @@ function buildLounges(rows) {
       infrastructure: infra,
       tableTypes: table,
       currentCrowd,
+      recommendationByTime: buildRecommendationByTime(row, crowdByTime, distanceM),
       metrics: [
         { key: "crowd", label: "혼잡도", value: crowdMetric.value, tone: crowdMetric.tone, detail: "" },
         { key: "noise", label: "소음도", value: noiseMetric.value, tone: noiseMetric.tone, detail: "" },
@@ -1001,7 +996,31 @@ function buildLounges(rows) {
     return lounge;
   });
   maxCrowdValue = Math.max(...built.flatMap((lounge) => lounge.crowdByTime.map((item) => item.value)), 1);
+  built.forEach((lounge) => {
+    lounge.recommendationByTime = buildRecommendationByTime(lounge.raw, lounge.crowdByTime, lounge.distanceM);
+  });
   return built.map((lounge) => simulateLounge(lounge));
+}
+
+function formatDistance(distanceM) {
+  const distance = Math.max(0, numberValue(distanceM, 0));
+  if (distance < 1000) return `${Math.round(distance / 5) * 5}m`;
+  return `${(distance / 1000).toFixed(1)}km`;
+}
+
+function arrivalMinutes(distanceM) {
+  return Math.ceil(Math.max(0, numberValue(distanceM, 0)) / 100 / 5) * 5;
+}
+
+function buildRecommendationByTime(row, crowdByTime, distanceM) {
+  return crowdByTime.reduce((map, item) => {
+    const crowdScore = crowdScoreFromValue(item.value);
+    const seatScore = estimatedSeatAvailabilityByRow(row, item.time, item.value).availableSeats > 0 ? 1 : 0;
+    const availability = seatScore * 0.5 + crowdScore * 0.5;
+    const distanceScore = clamp(1 - numberValue(distanceM, 0) / 1908, 0, 1);
+    map[item.time] = clamp(availability * 0.4 + distanceScore * 0.15 + 0.15, 0, 1);
+    return map;
+  }, {});
 }
 
 function populousData() {
@@ -1164,7 +1183,7 @@ function simulateLounge(lounge) {
   const currentCrowd = currentCrowdValue(lounge.crowdByTime || [], lounge.currentCrowd || numberValue(lounge.raw?.default_populous, 0.5) * 100, activeMinutes);
   const currentCrowdNormalized = clamp(currentCrowd / Math.max(maxCrowdValue, 1), 0, 1);
   const crowdMetric = crowdMetricFromScore(crowdScoreFromValue(currentCrowd));
-  const cachedSeats = seatAvailabilityFor(lounge);
+  const cachedSeats = seatAvailabilityFor(lounge, activeMinutes);
   const estimatedSeats = estimatedSeatAvailability(lounge, currentCrowdNormalized, activeMinutes);
   const seatAvailability = cachedSeats || estimatedSeats;
   const sitMetric = seatMetricFromAvailability(seatAvailability.availableSeats > 0, numberValue(lounge.raw?.usage_time, 60));
@@ -1173,7 +1192,7 @@ function simulateLounge(lounge) {
   return {
     ...lounge,
     currentCrowd,
-    recommended: currentCrowdNormalized < 0.65,
+    recommended: canSitOnArrival(lounge),
     status: currentCrowdNormalized < 0.4 ? "calm" : currentCrowdNormalized < 0.75 ? "normal" : "busy",
     statusTone: crowdMetric.tone,
     metrics: [
@@ -1185,22 +1204,22 @@ function simulateLounge(lounge) {
   };
 }
 
-function seatAvailabilityFor(lounge) {
+function seatAvailabilityFor(lounge, minutes = selectedUseMinutes()) {
   try {
-    const key = seatAvailabilityKey(lounge.code);
+    const key = seatAvailabilityKey(lounge.code, minutes);
     return seatAvailabilityCache[key] || null;
   } catch {
     return null;
   }
 }
 
-function seatAvailabilityKey(code) {
+function seatAvailabilityKey(code, minutes = selectedUseMinutes()) {
   let time;
   try {
-    time = simulationTimeValue();
+    time = `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
   } catch {
-    const minutes = currentClockMinutes();
-    time = `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+    const currentMinutes = currentClockMinutes();
+    time = `${Math.floor(currentMinutes / 60)}:${String(currentMinutes % 60).padStart(2, "0")}`;
   }
   return `${code || "unknown"}-${normalizedPopulousKey(time)}`;
 }
@@ -1217,6 +1236,48 @@ function estimatedSeatAvailability(lounge, currentCrowdNormalized, activeMinutes
     availableOutlets: outletTotal ? Math.max(0, Math.round(outletTotal * (1 - currentCrowdNormalized))) : 0,
     totalOutlets: outletTotal,
   };
+}
+
+function estimatedSeatAvailabilityByRow(row, time, crowdValue = null) {
+  const minutes = typeof time === "number" ? time : timeLabelToMinutes(time);
+  if (!isOpenAt(row || {}, minutes)) return { availableSeats: 0, totalSeats: 24, availableOutlets: 0, totalOutlets: flagValue(row?.charge) ? 4 : 0 };
+  const timeKey = `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
+  const totalSeats = 24;
+  const occupiedSeats = Array.from({ length: totalSeats }, (_, index) => deterministicSeatOccupied(row?.lounge_code || "lounge", row || {}, index, timeKey, clamp((crowdValue ?? 50) / 100, 0, 1))).filter(Boolean).length;
+  const seatCount = totalSeats - occupiedSeats;
+  const normalized = clamp((crowdValue ?? crowdStaticValue(row || {}, timeKey)) / Math.max(maxCrowdValue, 1), 0, 1);
+  const outletTotal = flagValue(row?.charge) ? 4 : 0;
+  return {
+    availableSeats: seatCount,
+    totalSeats,
+    availableOutlets: outletTotal ? Math.max(0, Math.round(outletTotal * (1 - normalized))) : 0,
+    totalOutlets: outletTotal,
+  };
+}
+
+function seatAvailabilityAt(lounge, minutes = selectedUseMinutes()) {
+  const cached = seatAvailabilityFor(lounge, minutes);
+  if (cached) return cached;
+  const crowdValue = currentCrowdValue(lounge.crowdByTime || [], lounge.currentCrowd || 0, minutes);
+  return estimatedSeatAvailabilityByRow(lounge.raw || {}, minutes, crowdValue);
+}
+
+function selectedUseMinutes() {
+  if (state.departureMode === "soon") return (activeSimulationMinutes() + numberValue(state.departureDelay, 0)) % (24 * 60);
+  if (state.departureMode === "later") {
+    let hour = numberValue(state.departureHour, 12) % 12;
+    if (state.departurePeriod === "오후") hour += 12;
+    return hour * 60 + numberValue(state.departureMinute, 0);
+  }
+  return activeSimulationMinutes();
+}
+
+function arrivalTargetMinutes(lounge) {
+  return (activeSimulationMinutes() + arrivalMinutes(lounge.distanceM)) % (24 * 60);
+}
+
+function canSitOnArrival(lounge) {
+  return seatAvailabilityAt(lounge, arrivalTargetMinutes(lounge)).availableSeats > 0;
 }
 
 function activeSimulationMinutes() {
@@ -1346,7 +1407,7 @@ async function renderImageSeatPlan(container, canvas) {
   if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
   if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
   if (outletsImage && state.showOutlets) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
-  const cacheKey = seatAvailabilityKey(code);
+  const cacheKey = seatAvailabilityKey(code, activeSimulationMinutes());
   const previousAvailability = seatAvailabilityCache[cacheKey];
   const nextAvailability = {
     availableSeats: simulation.availableSeats,
@@ -1921,11 +1982,31 @@ function renderTrend(lounge) {
 
 function trendPoints(crowdByTime) {
   const values = crowdByTime.length ? crowdByTime : [{ value: 50 }, { value: 50 }];
-  const maxValue = Math.max(...values.map((item) => item.value), 100);
-  return values.map((item, index) => {
+  const smoothedValues = smoothTrendValues(values.map((item) => item.value));
+  const maxValue = Math.max(...smoothedValues, 100);
+  return smoothedValues.map((value, index) => {
     const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
-    const y = 100 - clamp((item.value / maxValue) * 100, 0, 100);
+    const y = 100 - clamp((value / maxValue) * 100, 0, 100);
     return { x, y };
+  });
+}
+
+function smoothTrendValues(values) {
+  if (values.length < 5) return values;
+  return values.map((_, index) => {
+    const weighted = [
+      [index - 2, 1],
+      [index - 1, 2],
+      [index, 3],
+      [index + 1, 2],
+      [index + 2, 1],
+    ].reduce((acc, [sourceIndex, weight]) => {
+      const safeIndex = clamp(sourceIndex, 0, values.length - 1);
+      acc.sum += values[safeIndex] * weight;
+      acc.weight += weight;
+      return acc;
+    }, { sum: 0, weight: 0 });
+    return weighted.sum / weighted.weight;
   });
 }
 
@@ -1977,9 +2058,11 @@ function currentTrendPoint(crowdByTime) {
   crowdByTime.forEach((item, index) => {
     if (Math.abs(timeKeyToMinutes(item.time) - minutes) < Math.abs(timeKeyToMinutes(crowdByTime[nearestIndex].time) - minutes)) nearestIndex = index;
   });
+  const smoothedValues = smoothTrendValues(crowdByTime.map((item) => item.value));
+  const maxValue = Math.max(...smoothedValues, 100);
   return {
     x: crowdByTime.length === 1 ? 0 : (nearestIndex / (crowdByTime.length - 1)) * 100,
-    y: 100 - clamp((crowdByTime[nearestIndex].value / Math.max(...crowdByTime.map((item) => item.value), 100)) * 100, 0, 100),
+    y: 100 - clamp((smoothedValues[nearestIndex] / maxValue) * 100, 0, 100),
     state: crowdMetricFromScore(crowdScoreFromValue(crowdByTime[nearestIndex].value)).tone,
   };
 }
@@ -2538,7 +2621,7 @@ function bindEvents() {
     localStorage.removeItem(AUTH_GUEST_KEY);
     state.isGuest = true;
     state.currentUser = null;
-    state.route = "home";
+    state.route = "restricted";
     render();
   });
   document.querySelector("[data-logout]")?.addEventListener("click", async () => {
@@ -2971,7 +3054,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=64").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=65").catch(() => {}));
 }
 
 async function boot() {
