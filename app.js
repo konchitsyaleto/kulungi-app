@@ -187,6 +187,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 const adminNicknames = ["윤서"];
+const allowedNicknames = ["비플렉스", "강소은", "다인", "주리", "테스트2"];
 let collegeMajorData = [];
 let seatSimulationData = null;
 
@@ -553,10 +554,12 @@ function recommendationPercent(lounge) {
 
 function render() {
   const routeChanged = lastRenderedRoute && lastRenderedRoute !== state.route;
+  if (accessBlocked()) state.route = "restricted";
   const views = {
     welcome: renderWelcome,
     signup: renderSignup,
     login: renderLogin,
+    restricted: renderRestricted,
     home: renderHome,
     detail: renderDetail,
     search: renderSearch,
@@ -570,6 +573,30 @@ function render() {
   adjustHeroTone();
   if (routeChanged) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   lastRenderedRoute = state.route;
+}
+
+function accessBlocked() {
+  return !["welcome", "signup", "login", "restricted"].includes(state.route) && !canAccessProject();
+}
+
+function canAccessProject() {
+  return allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser) || state.profile.role === "admin";
+}
+
+function renderRestricted() {
+  return `
+    <section class="screen auth-screen welcome-auth">
+      <div class="auth-center">
+        <div class="auth-logo">kulungi</div>
+        <h1>발표 전까지<br />프로젝트 인원만 볼 수 있어요.</h1>
+        <p class="restricted-copy">허용된 계정으로 로그인해주세요.</p>
+        <div class="auth-actions">
+          <button class="auth-primary" data-auth-route="login">로그인</button>
+          <button class="auth-login-link" data-auth-route="signup">쿠룽지 친구 되기</button>
+        </div>
+      </div>
+    </section>
+  `;
 }
 
 function renderWelcome() {
@@ -1795,7 +1822,7 @@ function bindEvents() {
     localStorage.removeItem(AUTH_GUEST_KEY);
     state.isGuest = true;
     state.currentUser = null;
-    state.route = "home";
+    state.route = "restricted";
     render();
   });
   document.querySelector("[data-logout]")?.addEventListener("click", async () => {
@@ -2206,7 +2233,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=39").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=40").catch(() => {}));
 }
 
 async function boot() {

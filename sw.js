@@ -1,4 +1,4 @@
-const CACHE_NAME = "kulungi-prototype-v39";
+const CACHE_NAME = "kulungi-prototype-v40";
 const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./lounge-data.js", "./college-major.csv", "./seat-simulation.json", "./manifest.webmanifest", "./icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
