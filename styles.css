@@ -2395,3 +2395,45 @@ body {
     font-size: 14px;
   }
 }
+
+.welcome-auth {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.welcome-auth .auth-center {
+  width: 100% !important;
+  max-width: 390px !important;
+  gap: 28px !important;
+}
+
+.welcome-auth .auth-actions {
+  gap: 16px !important;
+}
+
+.auth-primary {
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+  padding: 0 !important;
+  font-size: 18px !important;
+  line-height: 42px !important;
+  border-radius: 999px !important;
+}
+
+.auth-field {
+  height: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+}
+
+.auth-field input,
+.auth-field select {
+  height: 42px !important;
+  line-height: 42px !important;
+}
+
+.auth-form {
+  gap: 24px !important;
+}
