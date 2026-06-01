@@ -1241,6 +1241,16 @@ p {
   padding: 0 14px;
 }
 
+.logout-text {
+  width: fit-content;
+  min-height: 36px;
+  margin: 18px auto 0;
+  color: var(--soft-text);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .settings-list button {
   min-height: 72px;
   padding: 12px;

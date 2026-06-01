@@ -1479,6 +1479,7 @@ function renderProfile() {
           </button>
         `).join("")}
       </div>
+      <button class="logout-text" data-logout>로그아웃</button>
       ${renderTabbar()}
     </section>
   `;
@@ -1734,6 +1735,26 @@ function bindEvents() {
     state.isGuest = true;
     state.currentUser = null;
     state.route = "home";
+    render();
+  });
+  document.querySelector("[data-logout]")?.addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem(AUTH_GUEST_KEY);
+    state.currentUser = null;
+    state.isGuest = false;
+    state.profilePage = "";
+    state.profile = {
+      name: "",
+      college: colleges()[0] || "",
+      department: majorsForCollege(colleges()[0] || "")[0] || "",
+      saved: false,
+      photo: "",
+      role: "user",
+    };
+    state.favorites = new Set(defaultFavorites);
+    state.presets = [...defaultPresets];
+    state.route = "welcome";
     render();
   });
   document.querySelector("[data-toggle-auth-password]")?.addEventListener("click", () => {
@@ -2107,7 +2128,7 @@ function parseCollegeMajorCsv(text) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=28").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=29").catch(() => {}));
 }
 
 async function boot() {
