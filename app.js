@@ -1115,14 +1115,19 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
   const scaleX = 160;
   const scaleY = 120;
   const objects = [
-    ...blueprint.chairs.map((item) => ({
-      kind: "chair",
-      src: `${item.type}_${String(item.direction).padStart(2, "0")}.png`,
-      stateSrc: `${item.type}_${String(item.direction).padStart(2, "0")}-${item[timeKey] === "1" ? "02" : "00"}.png`,
-      x: numberValue(item.pos_x) * scaleX,
-      bottomY: numberValue(item.pos_y) * scaleY,
-      sortY: numberValue(item.pos_y),
-    })),
+    ...blueprint.chairs.map((item) => {
+      const occupancy = blueprint.occupancyBySeat.get(String(item.seat).trim());
+      const occupied = normalizeBlueprintOccupancy(occupancy?.[timeKey]) === "1";
+      const assetName = `${item.type}_${String(item.direction).padStart(2, "0")}`;
+      return {
+        kind: "chair",
+        src: `${assetName}.png`,
+        stateSrc: `${assetName}-${occupied ? "02" : "00"}.png`,
+        x: numberValue(item.pos_x) * scaleX,
+        bottomY: numberValue(item.pos_y) * scaleY,
+        sortY: numberValue(item.pos_y),
+      };
+    }),
     ...blueprint.tables.map((item) => ({
       kind: "table",
       src: `${item.type}.png`,
@@ -1183,20 +1188,23 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
 
 async function loadBlueprint(code) {
   if (blueprintCache[code]) return blueprintCache[code];
-  const [chairsText, tablesText, outletsText] = await Promise.all([
+  const [chairsText, tablesText, outletsText, occupancyText] = await Promise.all([
     fetch(`./blueprint/${code}-C.csv`).then((response) => response.text()),
     fetch(`./blueprint/${code}-T.csv`).then((response) => response.text()),
     fetch(`./blueprint/${code}-E.csv`).then((response) => response.text()),
+    fetch(`./blueprint/${code}-O.csv`).then((response) => response.text()),
   ]);
   const chairs = parseBlueprintCsv(chairsText);
   const tables = parseBlueprintCsv(tablesText);
   const outlets = parseBlueprintCsv(outletsText);
-  const timeKeys = Object.keys(chairs[0] || {}).filter((key) => /^\d{1,2}:\d{2}$/.test(key));
-  blueprintCache[code] = { chairs, tables, outlets, timeKeys };
+  const occupancy = parseBlueprintCsv(occupancyText, (row) => row.seat !== "");
+  const occupancyBySeat = new Map(occupancy.map((row) => [String(row.seat).trim(), row]));
+  const timeKeys = Object.keys(occupancy[0] || {}).filter((key) => /^\d{1,2}:\d{2}$/.test(key));
+  blueprintCache[code] = { chairs, tables, outlets, occupancyBySeat, timeKeys };
   return blueprintCache[code];
 }
 
-function parseBlueprintCsv(text) {
+function parseBlueprintCsv(text, keepRow = (row) => (row.type || row.Elec) && row.pos_x !== "" && row.pos_y !== "") {
   const lines = text.trim().split(/\r?\n/).map((line) => line.replace(/^\uFEFF/, ""));
   const headerIndex = lines.findIndex((line) => /^(seat|table|Elec),/.test(line));
   if (headerIndex < 0) return [];
@@ -1211,7 +1219,13 @@ function parseBlueprintCsv(text) {
         return row;
       }, {});
     })
-    .filter((row) => (row.type || row.Elec) && row.pos_x !== "" && row.pos_y !== "");
+    .filter(keepRow);
+}
+
+function normalizeBlueprintOccupancy(value) {
+  const text = String(value || "").trim();
+  if (!text || /^\(.+\)$/.test(text)) return "-1";
+  return text;
 }
 
 function currentBlueprintTimeKey(timeKeys) {
@@ -2352,7 +2366,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=42").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=43").catch(() => {}));
 }
 
 async function boot() {

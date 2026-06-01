@@ -1,4 +1,4 @@
-const CACHE_NAME = "kulungi-prototype-v42";
+const CACHE_NAME = "kulungi-prototype-v43";
 const ASSETS = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const ASSETS = [
   "./blueprint/10001-C.csv",
   "./blueprint/10001-T.csv",
   "./blueprint/10001-E.csv",
+  "./blueprint/10001-O.csv",
   "./manifest.webmanifest",
   "./icons/icon.svg",
   "./objects/C1_03.png",
