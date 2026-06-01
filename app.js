@@ -580,8 +580,8 @@ function renderWelcome() {
         <h1>안녕하세요.<br />쿠룽지에 오신 걸 환영해요.</h1>
         <div class="auth-actions">
           <button class="auth-primary" data-auth-route="signup">쿠룽지 친구 되기</button>
-          <button class="auth-ghost" data-guest-start>친구는 좀 부담스러워요</button>
           <button class="auth-login-link" data-auth-route="login">이미 쿠룽지 친구예요</button>
+          <button class="auth-ghost" data-guest-start>친구는 좀 부담스러워요</button>
         </div>
       </div>
     </section>
@@ -2206,7 +2206,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=32").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=33").catch(() => {}));
 }
 
 async function boot() {
