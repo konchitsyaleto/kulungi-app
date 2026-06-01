@@ -188,6 +188,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 const adminNicknames = ["윤서"];
 let collegeMajorData = [];
+let seatSimulationData = null;
 
 if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
 const campuses = buildCampuses(lounges);
@@ -1052,9 +1053,10 @@ async function renderImageSeatPlan(container, canvas) {
   const tables = tablesImage ? detectBoxes(tablesImage) : [];
   const chairs = chairsImage ? detectBoxes(chairsImage) : [];
   const outlets = outletsImage ? detectBoxes(outletsImage) : [];
-  const chairStates = chairs.map((chair, index) => ({ ...chair, state: pseudoOccupancy(index, crowd) }));
-  const tableStates = tables.map((table) => ({ ...table, state: aggregateState(nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45)) }));
-  const outletStates = outlets.map((outlet) => ({ ...outlet, state: aggregateState(nearestBoxes(outlet, chairStates, 90)) }));
+  const simulation = seatSimulationFor(code, chairs, tables, outlets);
+  const chairStates = chairs.map((chair, index) => ({ ...chair, state: simulation?.chairs[index] || pseudoOccupancy(index, crowd) }));
+  const tableStates = tables.map((table, index) => ({ ...table, state: simulation?.tables[index] || aggregateState(nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45)) }));
+  const outletStates = outlets.map((outlet, index) => ({ ...outlet, state: simulation?.outlets[index] || aggregateState(nearestBoxes(outlet, chairStates, 90)) }));
   if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
   if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
   if (outletsImage) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
@@ -1158,6 +1160,39 @@ function aggregateState(boxes) {
   if (boxes.some((box) => box.state === "bad")) return "bad";
   if (boxes.some((box) => box.state === "warn")) return "warn";
   return "good";
+}
+
+function seatSimulationFor(code, chairs, tables, outlets) {
+  const lounge = seatSimulationData?.lounges?.[code];
+  if (!lounge?.times) return null;
+  const states = lounge.times[seatSimulationTimeKey(lounge.times)];
+  if (!states) return null;
+  const decoded = {
+    chairs: decodeSeatSimulationStates(states.c || states.chairs),
+    tables: decodeSeatSimulationStates(states.t || states.tables),
+    outlets: decodeSeatSimulationStates(states.e || states.outlets),
+  };
+  if (decoded.chairs.length !== chairs.length || decoded.tables.length !== tables.length || decoded.outlets.length !== outlets.length) return null;
+  return decoded;
+}
+
+function decodeSeatSimulationStates(value) {
+  if (Array.isArray(value)) return value;
+  const legend = seatSimulationData?.stateLegend || { g: "good", w: "warn", b: "bad" };
+  return String(value || "").split("").map((item) => legend[item] || "good");
+}
+
+function seatSimulationTimeKey(times) {
+  const now = new Date();
+  const total = (Math.round((now.getHours() * 60 + now.getMinutes()) / 5) * 5) % (24 * 60);
+  const key = `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+  if (times[key]) return key;
+  return Object.keys(times).reduce((best, item) => Math.abs(timeLabelToMinutes(item) - total) < Math.abs(timeLabelToMinutes(best) - total) ? item : best, Object.keys(times)[0]);
+}
+
+function timeLabelToMinutes(label) {
+  const [hour, minute] = String(label).split(":").map(Number);
+  return (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
 }
 
 function tintLayer(targetContext, image, boxes, width, height, layerType) {
@@ -2161,12 +2196,21 @@ function parseCollegeMajorCsv(text) {
   }).filter((item) => item.college && item.major);
 }
 
+async function loadSeatSimulationData() {
+  try {
+    const response = await fetch("./seat-simulation.json");
+    seatSimulationData = await response.json();
+  } catch {
+    seatSimulationData = null;
+  }
+}
+
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=31").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=32").catch(() => {}));
 }
 
 async function boot() {
-  await loadCollegeMajorData();
+  await Promise.all([loadCollegeMajorData(), loadSeatSimulationData()]);
   await restoreSupabaseSession();
   render();
 }

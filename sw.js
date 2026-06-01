@@ -1,5 +1,5 @@
-const CACHE_NAME = "kulungi-prototype-v31";
-const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./lounge-data.js", "./college-major.csv", "./manifest.webmanifest", "./icons/icon.svg"];
+const CACHE_NAME = "kulungi-prototype-v32";
+const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./lounge-data.js", "./college-major.csv", "./seat-simulation.json", "./manifest.webmanifest", "./icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

@@ -1242,6 +1242,7 @@ p {
 }
 
 .logout-text {
+  display: block;
   width: fit-content;
   min-height: 36px;
   margin: 18px auto 0;
