@@ -1258,6 +1258,7 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
   context.fillRect(0, 0, width, height);
   canvasItems
     .sort((a, b) => {
+      if (a.sortY !== b.sortY) return a.sortY - b.sortY;
       if (a.kind !== b.kind) return a.kind === "chair" ? -1 : 1;
       return a.sortY - b.sortY;
     })
@@ -2497,7 +2498,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=48").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=49").catch(() => {}));
 }
 
 async function boot() {
