@@ -3123,7 +3123,7 @@ async function loadStaticSeatOccupancyData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=73").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=74").catch(() => {}));
 }
 
 async function boot() {
