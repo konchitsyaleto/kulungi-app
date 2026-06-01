@@ -1357,13 +1357,16 @@ function deterministicSeatSimulation(code, lounge, chairs, tables, outlets, crow
     ...chair,
     state: deterministicSeatOccupied(code, lounge.raw || {}, index, timeKey, crowdFallback) ? "bad" : "good",
   }));
+  const chairTableIndexes = assignChairsToTables(chairStates, tables);
   const tableStates = tables.map((table) => {
-    const nearChairs = nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45);
-    return { ...table, state: nearChairs.some((chair) => chair.state === "bad") ? "bad" : "good" };
+    const tableIndex = tables.indexOf(table);
+    const assignedChairs = chairStates.filter((_, chairIndex) => chairTableIndexes[chairIndex] === tableIndex);
+    return { ...table, state: assignedChairs.some((chair) => chair.state === "bad") ? "bad" : "good" };
   });
-  const restrictedChairs = chairStates.map((chair) => {
+  const restrictedChairs = chairStates.map((chair, index) => {
     if (chair.state === "bad") return chair;
-    const sharedOccupiedTable = tableStates.some((table) => table.state === "bad" && nearestBoxes(chair, [table], Math.max(table.w, table.h) * 1.45).length);
+    const tableIndex = chairTableIndexes[index];
+    const sharedOccupiedTable = tableIndex >= 0 && tableStates[tableIndex]?.state === "bad";
     return sharedOccupiedTable ? { ...chair, state: "warn" } : chair;
   });
   const outletStates = outlets.map((outlet, index) => {
@@ -1384,6 +1387,20 @@ function deterministicSeatSimulation(code, lounge, chairs, tables, outlets, crow
   };
 }
 
+function assignChairsToTables(chairs, tables) {
+  return chairs.map((chair) => {
+    if (!tables.length) return -1;
+    const closest = tables.reduce((best, table, index) => {
+      const distance = Math.hypot(chair.cx - table.cx, chair.cy - table.cy);
+      const limit = Math.max(table.w, table.h) * 1.65 + Math.max(chair.w, chair.h) * 0.5;
+      if (distance > limit) return best;
+      if (!best || distance < best.distance) return { index, distance };
+      return best;
+    }, null);
+    return closest ? closest.index : -1;
+  });
+}
+
 function deterministicSeatOccupied(code, row, index, targetTime, crowdFallback) {
   let occupied = false;
   const targetMinutes = timeLabelToMinutes(targetTime);
@@ -1393,10 +1410,7 @@ function deterministicSeatOccupied(code, row, index, targetTime, crowdFallback) 
       occupied = false;
       continue;
     }
-    const baseP = populousValueAt(time, clamp(crowdFallback / 100, 0, 1));
-    const persistence = clamp(numberValue(row.p_adjusted, row.change_p || 0.9), 0, 1);
-    const defaultLoad = clamp(numberValue(row.default_populous, baseP), 0, 1);
-    const p = clamp(baseP * persistence + defaultLoad * (1 - persistence), 0, 1);
+    const p = populousValueAt(time, clamp(crowdFallback / 100, 0, 1));
     const r1 = stableRandom(`${code}-${index}-${time}-a`);
     const z = inverseNormal(clamp(stableRandom(`${code}-${index}-${time}-b`), 0.001, 0.999));
     if (!occupied) {
@@ -1701,8 +1715,7 @@ function detectBoxes(image) {
   const active = (x, y) => {
     const offset = (y * width + x) * 4;
     const alpha = data[offset + 3];
-    const brightness = (data[offset] + data[offset + 1] + data[offset + 2]) / 3;
-    return alpha > 20 && brightness < 252;
+    return alpha > 20;
   };
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -1792,7 +1805,6 @@ function timeLabelToMinutes(label) {
 }
 
 function tintLayer(targetContext, image, boxes, width, height, layerType) {
-  const visibleBoxes = boxes.length ? boxes : [{ x: 0, y: 0, w: width, h: height, state: "good" }];
   const source = document.createElement("canvas");
   source.width = width;
   source.height = height;
@@ -1800,7 +1812,7 @@ function tintLayer(targetContext, image, boxes, width, height, layerType) {
   sourceContext.drawImage(image, 0, 0);
   const imageData = sourceContext.getImageData(0, 0, width, height);
   const data = imageData.data;
-  visibleBoxes.forEach((box) => {
+  boxes.forEach((box) => {
     const [r, g, b] = hexToRgb(stateColor(box.state));
     for (let y = Math.max(0, box.y); y < Math.min(height, box.y + box.h); y += 1) {
       for (let x = Math.max(0, box.x); x < Math.min(width, box.x + box.w); x += 1) {
@@ -1829,22 +1841,14 @@ function tintLayer(targetContext, image, boxes, width, height, layerType) {
     table: 2,
     outlet: 2,
   }[layerType] || 2;
-  visibleBoxes.forEach((box) => {
-    targetContext.save();
-    targetContext.globalAlpha = layerType === "table" ? 0.46 : layerType === "outlet" ? 0.58 : 0.5;
-    targetContext.fillStyle = stateColor(box.state);
-    roundRect(targetContext, box.x - 2, box.y - 2, box.w + 4, box.h + 4, Math.min(10, Math.max(4, Math.min(box.w, box.h) / 4)));
-    targetContext.fill();
-    targetContext.restore();
-  });
   targetContext.drawImage(source, 0, 0);
   targetContext.restore();
 }
 
 function stateColor(state) {
-  if (state === "bad") return "#ef4444";
-  if (state === "warn") return "#facc15";
-  return "#22c55e";
+  if (state === "bad") return "#ffb3ba";
+  if (state === "warn") return "#ffffba";
+  return "#baffc9";
 }
 
 function hexToRgb(hex) {
@@ -2923,7 +2927,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=61").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=62").catch(() => {}));
 }
 
 async function boot() {
