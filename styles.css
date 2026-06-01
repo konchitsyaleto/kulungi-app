@@ -71,15 +71,20 @@ p {
 }
 
 .auth-screen {
-  display: grid;
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding: calc(env(safe-area-inset-top) + 28px) 20px calc(env(safe-area-inset-bottom) + 28px);
+}
+
+.form-auth {
+  position: relative;
 }
 
 .auth-center {
   display: grid;
   justify-items: center;
-  gap: 24px;
+  gap: 18px;
   text-align: center;
 }
 
@@ -101,16 +106,20 @@ p {
 .auth-form {
   width: 100%;
   display: grid;
-  gap: 18px;
+  gap: 10px;
 }
 
 .auth-form {
   align-self: center;
   padding-top: 0;
+  gap: 14px;
 }
 
 .auth-screen .plain-header {
-  align-self: start;
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 14px);
+  left: 0;
+  right: 0;
 }
 
 .auth-form.compact {
@@ -119,13 +128,14 @@ p {
 
 .auth-primary {
   width: 100%;
-  min-height: 34px;
+  height: 26px;
+  min-height: 26px;
   display: grid;
   place-items: center;
   border-radius: 999px;
   background: var(--accent);
   color: var(--white);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 500;
   text-align: center;
 }
@@ -157,11 +167,12 @@ p {
 }
 
 .auth-field {
-  min-height: 34px;
+  min-height: 26px;
+  height: 26px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  padding: 0 10px 0 14px;
+  padding: 0 8px 0 12px;
   border-radius: 999px;
   background: var(--gray);
 }
@@ -170,7 +181,7 @@ p {
 .auth-field select {
   width: 100%;
   min-width: 0;
-  height: 34px;
+  height: 26px;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -179,16 +190,16 @@ p {
 }
 
 .auth-field button {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   color: var(--soft-text);
 }
 
 .auth-field svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .select-field {

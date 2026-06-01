@@ -574,7 +574,7 @@ function render() {
 
 function renderWelcome() {
   return `
-    <section class="screen auth-screen">
+    <section class="screen auth-screen welcome-auth">
       <div class="auth-center">
         <div class="auth-logo">kulungi</div>
         <h1>안녕하세요.<br />쿠룽지에 오신 걸 환영해요.</h1>
@@ -590,7 +590,7 @@ function renderWelcome() {
 
 function renderSignup() {
   return `
-    <section class="screen auth-screen">
+    <section class="screen auth-screen form-auth">
       <header class="plain-header">
         <button class="icon-btn" data-auth-route="welcome" aria-label="뒤로가기">${icon("back")}</button>
         <h1>쿠룽지 친구 되기</h1>
@@ -615,7 +615,7 @@ function renderSignup() {
 
 function renderLogin() {
   return `
-    <section class="screen auth-screen">
+    <section class="screen auth-screen form-auth">
       <header class="plain-header">
         <button class="icon-btn" data-auth-route="welcome" aria-label="뒤로가기">${icon("back")}</button>
         <h1>이미 쿠룽지 친구예요</h1>
@@ -2206,7 +2206,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=34").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=35").catch(() => {}));
 }
 
 async function boot() {
