@@ -1,10 +1,12 @@
-const CACHE_NAME = "kulungi-prototype-v59";
+const CACHE_NAME = "kulungi-prototype-v60";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./lounge-data.js",
+  "./lounge_data.csv",
+  "./populous_time_data.csv",
   "./college-major.csv",
   "./seat-simulation.json",
   "./gamasot_nurungji.mp3",

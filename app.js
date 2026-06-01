@@ -184,6 +184,29 @@ const purposeFilterMap = {
   수다: { party: "둘이", features: ["대화 가능", "다인석", "소파"] },
   "노트북 사용": { party: "혼자", features: ["백색 소음", "콘센트"] },
 };
+const featureFieldMap = {
+  "백색 소음": "white_noise",
+  "밝음": "bright",
+  "어두움": "dark",
+  "1인석": "individual",
+  "다인석": "multi",
+  "취식 가능": "eat",
+  "칸막이": "partition",
+  "높은 테이블": "high_table",
+  "낮은 테이블": "low_table",
+  "딱딱한 의자": "hard_chair",
+  "소파": "sofa",
+  "누울 수 있는 자리": "lie",
+  "콘센트": "charge",
+  "프린터": "printer",
+  "정수기": "water",
+  "도서반납기": "book_dispenser",
+  "카페": "cafe",
+  "복사기": "copier",
+  "편의점": "convenience",
+  "은행/ATM": "bank",
+  "샤워실": "shower",
+};
 const AUTH_USERS_KEY = "kulungi-users-v1";
 const AUTH_SESSION_KEY = "kulungi-session-v1";
 const AUTH_GUEST_KEY = "kulungi-guest-v1";
@@ -201,6 +224,7 @@ let collegeMajorData = [];
 let seatSimulationData = null;
 const blueprintCache = {};
 let mascotAudio = null;
+let maxCrowdValue = 100;
 
 if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
 const campuses = buildCampuses(lounges);
@@ -474,7 +498,7 @@ function sortLounges(a, b) {
 }
 
 function scoreLounge(lounge) {
-  const congestion = clamp(lounge.currentCrowd / 100, 0, 1);
+  const congestion = clamp(lounge.currentCrowd / Math.max(maxCrowdValue, 1), 0, 1);
   const seatAvailability = clamp(1 - congestion, 0, 1);
   const outletAvailability = lounge.chargeAvailable ? clamp(0.85 - congestion * 0.35, 0.35, 0.9) : 0.05;
   const availability = 0.5 * seatAvailability + 0.3 * (1 - congestion) + 0.2 * outletAvailability;
@@ -494,7 +518,7 @@ function scoreLounge(lounge) {
 function purposeFitScore(lounge) {
   const purposes = state.selectedPurpose.length ? state.selectedPurpose : ["공부"];
   const scores = purposes.map((purpose) => {
-    const congestionFit = 1 - clamp(lounge.currentCrowd / 100, 0, 1);
+    const congestionFit = 1 - clamp(lounge.currentCrowd / Math.max(maxCrowdValue, 1), 0, 1);
     const outlet = lounge.chargeAvailable ? 0.85 : 0.05;
     const quiet = quietness(lounge);
     const tableText = lounge.tableTypes.join(" ");
@@ -515,16 +539,20 @@ function purposeFitScore(lounge) {
 
 function requiredConditionFit(lounge) {
   const required = [];
-  if (state.selectedPurpose.includes("취식")) required.push(lounge.eatingAllowed);
-  if (state.selectedFeatures.includes("취식 가능")) required.push(lounge.eatingAllowed);
-  if (state.selectedFeatures.includes("콘센트")) required.push(lounge.chargeAvailable);
+  if (state.selectedPurpose.includes("취식")) required.push(featureFlag(lounge, "취식 가능"));
+  state.selectedFeatures.forEach((feature) => {
+    if (featureFieldMap[feature]) required.push(featureFlag(lounge, feature));
+  });
   if (state.selectedFeatures.includes("조용함")) required.push(quietness(lounge) > 0.55);
+  if (state.selectedFeatures.includes("대화 가능")) required.push(moderateNoise(lounge) > 0.45);
   if (!required.length) return 1;
   return required.filter(Boolean).length / required.length;
 }
 
 function partyFitScore(lounge) {
   if (!state.selectedParty) return 0.65;
+  const partyField = { "혼자": "alone", "둘이": "two", "서너명": "threefour", "다섯명 이상": "fiveormore" }[state.selectedParty];
+  if (partyField && featureFlag(lounge, partyField)) return 1;
   const tableText = `${lounge.tableTypes.join(" ")} ${lounge.raw.default_type || ""}`;
   const groupSeat = /4인|6인|다인|큰|소파|계단|테이블/.test(tableText);
   if (state.selectedParty === "혼자") return /1인|개인|독립|벽면/.test(tableText) ? 1 : 0.65;
@@ -537,8 +565,15 @@ function partyFitScore(lounge) {
 function selectedFeaturesFit(lounge) {
   if (!state.selectedFeatures.length) return 0.6;
   const haystack = `${lounge.tags.join(" ")} ${lounge.details.map((row) => row[1]).join(" ")}`;
-  const matched = state.selectedFeatures.filter((feature) => haystack.includes(feature) || (feature === "취식 가능" && lounge.eatingAllowed) || (feature === "콘센트" && lounge.chargeAvailable));
+  const matched = state.selectedFeatures.filter((feature) => featureFlag(lounge, feature) || haystack.includes(feature));
   return matched.length / state.selectedFeatures.length;
+}
+
+function featureFlag(lounge, feature) {
+  const field = featureFieldMap[feature] || feature;
+  if (feature === "조용함") return quietness(lounge) > 0.55;
+  if (feature === "대화 가능") return moderateNoise(lounge) > 0.45;
+  return flagValue(lounge.raw?.[field]);
 }
 
 function selectedWantsQuiet() {
@@ -546,11 +581,11 @@ function selectedWantsQuiet() {
 }
 
 function quietness(lounge) {
-  return clamp(1 - numberValue(lounge.raw.sensor_noise, 45) / 80, 0, 1);
+  return clamp(1 - currentNoiseValue(lounge.raw || {}, activeSimulationMinutes()) / 80, 0, 1);
 }
 
 function moderateNoise(lounge) {
-  return clamp(1 - Math.abs(numberValue(lounge.raw.sensor_noise, 45) - 55) / 40, 0, 1);
+  return clamp(1 - Math.abs(currentNoiseValue(lounge.raw || {}, activeSimulationMinutes()) - 55) / 40, 0, 1);
 }
 
 function brightnessPreference(lounge) {
@@ -585,8 +620,8 @@ function render() {
     detail: renderDetail,
     search: renderSearch,
     profile: renderProfile,
-    map: renderMap,
   };
+  if (!views[state.route]) state.route = "home";
   app.innerHTML = `<main class="phone-shell">${renderAdminTimeBar()}${views[state.route]()}</main>${renderModal()}`;
   bindEvents();
   if (state.route === "home") updateHomeSearchResults();
@@ -829,7 +864,6 @@ function renderLoungeCard(lounge) {
           <div class="tags scroll-tags">${lounge.tags.map((tag) => `<span>${tag}</span>`).join("")}</div>
         </div>
       </div>
-      ${lounge.recommended ? `<button class="recommend-tail" data-route="map">지금 출발하면 앉을 수 있어요</button>` : ""}
     </article>
   `;
 }
@@ -853,7 +887,6 @@ function renderDetail() {
         <div class="top-actions">
           <button class="icon-btn glass" data-home aria-label="뒤로가기">${icon("back")}</button>
           <div class="labeled-actions">
-            <button class="action-label" data-route="map" aria-label="길찾기"><span class="icon-btn glass nav-tilt">${icon("nav")}</span><small>길찾기</small></button>
             <button class="action-label" data-favorite="${lounge.id}" aria-label="즐겨찾기"><span class="icon-btn glass favorite ${state.favorites.has(lounge.id) ? "active" : ""}">${icon("heart")}</span><small>즐겨찾기</small></button>
           </div>
         </div>
@@ -864,7 +897,6 @@ function renderDetail() {
       </header>
       <div class="detail-content">
         ${renderMetrics(lounge)}
-        ${lounge.recommended ? `<button class="route-callout" data-route="map"><span>지금 출발하면 앉을 수 있어요</span><strong>${icon("clock")} ${lounge.walkMinutes}분</strong></button>` : ""}
         ${renderSeatMap(lounge)}
         ${renderTrend(lounge)}
         ${renderInfoTable(lounge)}
@@ -897,24 +929,21 @@ function metricDescription(metric) {
 }
 
 function buildLounges(rows) {
-  const buildingOrder = [...new Set(rows.map((row) => row.building).filter(Boolean))];
-  return rows.map((row, index) => {
-    const crowdByTime = crowdTimeKeys().map((key) => ({ time: key.slice(6), value: numberValue(row[key], numberValue(row.default_crowd_level, 50)) }));
-    const dayCrowd = dayKeys().map(([key, label]) => ({ day: label, value: numberValue(row[key], numberValue(row.default_crowd_level, 50)) }));
-    const currentCrowd = currentCrowdValue(crowdByTime, numberValue(row.default_crowd_level, 50));
-    const currentCrowdNormalized = clamp(currentCrowd / 100, 0, 1);
-    const noise = numberValue(row.sensor_noise, 45);
-    const chargeAvailable = boolValue(row.default_charge);
-    const eatingAllowed = boolValue(row.rule_eating);
-    const brightness = numberValue(row.default_brightness, 55);
+  const built = rows.map((row, index) => {
     const infra = splitList(row.infrastructure);
     const table = splitList(row.default_table);
-    const buildingIndex = Math.max(0, buildingOrder.indexOf(row.building));
-    const distanceM = 160 + buildingIndex * 65 + (index % 4) * 25;
-    const crowdMetric = crowdMetricFromValue(currentCrowd);
-    const noiseMetric = noiseMetricFromValue(noise);
-    const sitMetric = seatMetricFromCrowd(currentCrowd);
-    const chargeMetric = chargeMetricFromData(chargeAvailable, currentCrowd);
+    const crowdByTime = buildCrowdByTime(row);
+    const dayCrowd = dayKeys().map(([, label]) => ({ day: label, value: clamp(numberValue(row.default_populous, 0.5) * 100 + (index % 5) * 3, 0, 100) }));
+    const currentCrowd = currentCrowdValue(crowdByTime, numberValue(row.default_populous, 0.5) * 100);
+    const crowdMetric = crowdMetricFromScore(crowdScoreFromValue(currentCrowd));
+    const noiseValue = currentNoiseValue(row);
+    const noiseMetric = noiseMetricFromValue(noiseValue);
+    const sitMetric = seatMetricFromAvailability(true, numberValue(row.usage_time, 60));
+    const chargeMetric = chargeMetricFromAvailability(flagValue(row.charge), flagValue(row.charge) ? 1 : 0, 1);
+    const brightness = flagValue(row.bright) ? 80 : flagValue(row.dark) ? 25 : 55;
+    const chargeAvailable = flagValue(row.charge);
+    const eatingAllowed = flagValue(row.eat);
+    const distanceM = numberValue(row.distance, 0);
     const lounge = {
       id: `lounge-${row.lounge_code || index}`,
       code: row.lounge_code,
@@ -922,16 +951,16 @@ function buildLounges(rows) {
       name: row.lounge_name || `${row.building || "건물"} 라운지`,
       building: row.building || "건물 미정",
       floor: row.lounge_floor || "층수 미정",
-      distance: `${distanceM}m`,
+      distance: distanceM ? `${distanceM}m` : "거리 미정",
       distanceM,
       walkMinutes: Math.max(2, Math.round(distanceM / 70)),
       favorite: false,
-      recommended: currentCrowdNormalized < 0.65,
+      recommended: crowdMetric.tone !== "bad",
       recommendation: 0,
       heroTone: "dark",
-      status: currentCrowdNormalized < 0.4 ? "calm" : currentCrowdNormalized < 0.75 ? "normal" : "busy",
+      status: crowdMetric.tone === "good" ? "calm" : crowdMetric.tone === "warn" ? "normal" : "busy",
       statusTone: crowdMetric.tone,
-      tags: buildTags(row, infra, table, brightness, chargeAvailable, eatingAllowed),
+      tags: buildTags(row, infra, table),
       thumbnail: "linear-gradient(135deg, #FFFFFF, #F2F4F7)",
       image: "linear-gradient(135deg, #FFFFFF, #EEF0F3)",
       raw: row,
@@ -953,6 +982,70 @@ function buildLounges(rows) {
     };
     return lounge;
   });
+  maxCrowdValue = Math.max(...built.flatMap((lounge) => lounge.crowdByTime.map((item) => item.value)), 1);
+  return built.map((lounge) => simulateLounge(lounge));
+}
+
+function populousData() {
+  return window.POPULOUS_TIME_DATA || {};
+}
+
+function populousEntries() {
+  return Object.entries(populousData()).filter(([time]) => /^\d{1,2}:\d{2}$/.test(time));
+}
+
+function normalizedPopulousKey(time) {
+  const minutes = timeLabelToMinutes(time);
+  return `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+function populousValueAt(time, fallback = 0.5) {
+  const data = populousData();
+  const key = normalizedPopulousKey(time);
+  const paddedKey = `${String(Math.floor(timeLabelToMinutes(time) / 60) % 24).padStart(2, "0")}:${String(timeLabelToMinutes(time) % 60).padStart(2, "0")}`;
+  return clamp(numberValue(data[key] ?? data[paddedKey], fallback), 0, 1);
+}
+
+function defaultOpenMinutes(row) {
+  return row.open ? timeLabelToMinutes(row.open) : 8 * 60 + 30;
+}
+
+function defaultCloseMinutes(row) {
+  return row.close ? timeLabelToMinutes(row.close) : 22 * 60 + 30;
+}
+
+function isOpenAt(row, time) {
+  const minutes = typeof time === "number" ? time : timeLabelToMinutes(time);
+  return minutes >= defaultOpenMinutes(row) && minutes <= defaultCloseMinutes(row);
+}
+
+function buildCrowdByTime(row) {
+  const entries = populousEntries();
+  const source = entries.length ? entries : simulationTimeOptions().map((time) => [time, "0.5"]);
+  return source
+    .filter(([time]) => isOpenAt(row, time))
+    .map(([time]) => ({ time: normalizedPopulousKey(time), value: crowdStaticValue(row, time) }));
+}
+
+function crowdStaticValue(row, time) {
+  const populous = populousValueAt(time, 0.5);
+  const occupiedRatio = clamp(numberValue(row.default_populous, 0.5), 0, 1);
+  return clamp(occupiedRatio * (populous + 0.5) * 100, 0, 150);
+}
+
+function currentNoiseValue(row, minutes = currentClockMinutes()) {
+  const populous = populousValueAt(`${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`, 0.5);
+  return numberValue(row.default_noise, 45) * (populous + 0.5);
+}
+
+function crowdScoreFromValue(value) {
+  return clamp(1 - value / Math.max(maxCrowdValue, 1), 0, 1);
+}
+
+function crowdMetricFromScore(score) {
+  if (score >= 0.75) return { value: "여유", tone: "good" };
+  if (score <= 0.33) return { value: "혼잡", tone: "bad" };
+  return { value: "보통", tone: "warn" };
 }
 
 function buildCampuses(sourceLounges) {
@@ -963,25 +1056,25 @@ function buildCampuses(sourceLounges) {
   }, {});
 }
 
-function buildTags(row, infra, table, brightness, chargeAvailable, eatingAllowed) {
+function buildTags(row, infra, table) {
   const tags = [
-    row.default_type,
-    chargeAvailable ? "콘센트" : "",
-    eatingAllowed ? "취식 가능" : "",
-    brightnessLabel(brightness),
-    ...infra.slice(0, 2),
-    ...table.slice(0, 2),
+    ...splitList(row.default_type),
+    ...infra,
+    ...table,
   ].filter(Boolean);
-  return [...new Set(tags)].slice(0, 8);
+  return [...new Set(tags)];
 }
 
 function buildDetails(row, infra, table, brightness) {
   return [
-    ["좌석 및 테이블", table.length ? table.join(", ") : fallbackTable(row.default_type)],
+    ["캠퍼스/건물", `${row.campus || "캠퍼스 미정"} · ${row.building || "건물 미정"}`],
+    ["층", row.lounge_floor || "층수 미정"],
     ["라운지 형태", row.default_type || "오픈형"],
-    ["인접 시설", infra.length ? infra.join(", ") : "정수기, 휴게 공간"],
+    ["좌석 및 테이블", table.length ? table.join(", ") : fallbackTable(row.default_type)],
+    ["시설", infra.length ? infra.join(", ") : "시설 정보 없음"],
+    ["평균 체류시간", `${numberValue(row.usage_time, 0)}분`],
+    ["소음 단계", row["noise level"] || noiseMetricFromValue(currentNoiseValue(row)).value],
     ["운영 시간", `${row.open || "08:30"}-${row.close || "22:30"} · ${openDaysText(row)}`],
-    ["라운지 규칙", boolValue(row.rule_eating) ? "취식 가능" : "취식 제한"],
     ["밝기", brightnessLabel(brightness)],
   ];
 }
@@ -993,17 +1086,19 @@ function fallbackTable(type) {
 }
 
 function openDaysText(row) {
-  const labels = [
-    ["mon_open", "월"],
-    ["tue_open", "화"],
-    ["wed_open", "수"],
-    ["thu_open", "목"],
-    ["fri_open", "금"],
-    ["sat_open", "토"],
-    ["sun_open", "일"],
-  ].filter(([key]) => boolValue(row[key])).map(([, label]) => label);
+  const dayFields = [
+    [["mon", "Mon", "mon_open"], "월"],
+    [["tue", "Tue", "tue_open"], "화"],
+    [["wed", "Wed", "wed_open"], "수"],
+    [["thu", "Thu", "thu_open"], "목"],
+    [["fri", "Fri", "fri_open"], "금"],
+    [["sat", "Sat", "sat_open"], "토"],
+    [["sun", "Sun", "sun_open"], "일"],
+  ];
+  const hasDayColumns = dayFields.some(([keys]) => keys.some((key) => Object.prototype.hasOwnProperty.call(row, key)));
+  const labels = dayFields.filter(([keys]) => keys.some((key) => flagValue(row[key]) || boolValue(row[key]))).map(([, label]) => label);
   if (labels.length === 7) return "매일 운영";
-  if (!labels.length) return "운영일 미정";
+  if (!labels.length) return hasDayColumns ? "운영일 미정" : "매일 운영";
   return `${labels.join(", ")} 운영`;
 }
 
@@ -1016,26 +1111,24 @@ function brightnessLabel(value) {
 }
 
 function crowdMetricFromValue(value) {
-  if (value < 40) return { value: "여유", tone: "good" };
-  if (value < 75) return { value: "보통", tone: "warn" };
-  return { value: "혼잡", tone: "bad" };
+  return crowdMetricFromScore(crowdScoreFromValue(value));
 }
 
 function noiseMetricFromValue(value) {
-  if (value < 35) return { value: "조용", tone: "good" };
-  if (value < 60) return { value: "보통", tone: "warn" };
+  if (value < 45) return { value: "조용", tone: "good" };
+  if (value < 65) return { value: "보통", tone: "warn" };
   return { value: "높음", tone: "bad" };
 }
 
-function seatMetricFromCrowd(value) {
-  if (value < 55) return { value: "있음", tone: "good" };
-  if (value < 85) return { value: "조금", tone: "warn" };
+function seatMetricFromAvailability(hasAvailableSeat, usageTime) {
+  if (hasAvailableSeat) return { value: "있음", tone: "good" };
+  if (usageTime < 30) return { value: "조금", tone: "warn" };
   return { value: "없음", tone: "bad" };
 }
 
-function chargeMetricFromData(chargeAvailable, crowd) {
-  if (!chargeAvailable) return { value: "적음", tone: "bad" };
-  if (crowd < 55) return { value: "넉넉", tone: "good" };
+function chargeMetricFromAvailability(chargeAvailable, availableCount, totalCount) {
+  if (!chargeAvailable || totalCount <= 0 || availableCount <= 0) return { value: "적음", tone: "bad" };
+  if (availableCount >= totalCount / 2) return { value: "넉넉", tone: "good" };
   return { value: "보통", tone: "warn" };
 }
 
@@ -1049,12 +1142,15 @@ function currentCrowdValue(crowdByTime, fallback = 50, minutes = currentClockMin
 
 function simulateLounge(lounge) {
   if (!lounge) return lounge;
-  const currentCrowd = currentCrowdValue(lounge.crowdByTime || [], lounge.currentCrowd || numberValue(lounge.raw?.default_crowd_level, 50), simulationMinutes());
-  const currentCrowdNormalized = clamp(currentCrowd / 100, 0, 1);
-  const crowdMetric = crowdMetricFromValue(currentCrowd);
-  const sitMetric = seatMetricFromCrowd(currentCrowd);
-  const chargeMetric = chargeMetricFromData(lounge.chargeAvailable, currentCrowd);
-  const noiseMetric = noiseMetricFromValue(numberValue(lounge.raw?.sensor_noise, 45));
+  const activeMinutes = activeSimulationMinutes();
+  const currentCrowd = currentCrowdValue(lounge.crowdByTime || [], lounge.currentCrowd || numberValue(lounge.raw?.default_populous, 0.5) * 100, activeMinutes);
+  const currentCrowdNormalized = clamp(currentCrowd / Math.max(maxCrowdValue, 1), 0, 1);
+  const crowdMetric = crowdMetricFromScore(crowdScoreFromValue(currentCrowd));
+  const predictedHasSeat = isOpenAt(lounge.raw || {}, activeMinutes) && currentCrowdNormalized < 0.92;
+  const sitMetric = seatMetricFromAvailability(predictedHasSeat, numberValue(lounge.raw?.usage_time, 60));
+  const chargeCount = lounge.chargeAvailable ? Math.max(0, Math.round((1 - currentCrowdNormalized) * 4)) : 0;
+  const chargeMetric = chargeMetricFromAvailability(lounge.chargeAvailable, chargeCount, lounge.chargeAvailable ? 4 : 0);
+  const noiseMetric = noiseMetricFromValue(currentNoiseValue(lounge.raw || {}, activeMinutes));
   return {
     ...lounge,
     currentCrowd,
@@ -1068,6 +1164,14 @@ function simulateLounge(lounge) {
       { key: "charge", label: "콘센트", value: chargeMetric.value, tone: chargeMetric.tone, detail: "" },
     ],
   };
+}
+
+function activeSimulationMinutes() {
+  try {
+    return simulationMinutes();
+  } catch {
+    return currentClockMinutes();
+  }
 }
 
 function simulationTimeOptions() {
@@ -1106,6 +1210,11 @@ function splitList(value) {
 
 function boolValue(value) {
   return String(value).trim().toUpperCase() === "TRUE";
+}
+
+function flagValue(value) {
+  const text = String(value ?? "").trim().toUpperCase();
+  return text === "1" || text === "TRUE" || text === "Y" || text === "YES";
 }
 
 function numberValue(value, fallback = 0) {
@@ -1154,7 +1263,8 @@ function initSeatingPlans() {
 async function renderImageSeatPlan(container, canvas) {
   const code = container.dataset.seatingPlan;
   const crowd = numberValue(container.dataset.crowd, 50);
-  const fallback = seatingFallbackPrefix(getSelectedLounge());
+  const lounge = getSelectedLounge();
+  const fallback = seatingFallbackPrefix(lounge);
   const [outletsImage, tablesImage, chairsImage] = await Promise.all([
     loadPlanLayer(code, fallback, "E"),
     loadPlanLayer(code, fallback, "T"),
@@ -1176,16 +1286,119 @@ async function renderImageSeatPlan(container, canvas) {
   const tables = tablesImage ? detectBoxes(tablesImage) : [];
   const chairs = chairsImage ? detectBoxes(chairsImage) : [];
   const outlets = outletsImage ? detectBoxes(outletsImage) : [];
-  const simulation = seatSimulationFor(code, chairs, tables, outlets);
-  const chairStates = chairs.map((chair, index) => ({ ...chair, state: simulation?.chairs[index] || pseudoOccupancy(index, crowd) }));
-  const tableStates = tables.map((table, index) => ({ ...table, state: simulation?.tables[index] || aggregateState(nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45)) }));
-  const outletStates = outlets.map((outlet, index) => ({ ...outlet, state: simulation?.outlets[index] || aggregateState(nearestBoxes(outlet, chairStates, 90)) }));
+  const simulation = deterministicSeatSimulation(code, lounge, chairs, tables, outlets, crowd);
+  const chairStates = simulation.chairs;
+  const tableStates = simulation.tables;
+  const outletStates = simulation.outlets;
   if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
   if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
   if (outletsImage && state.showOutlets) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
-  if (loading) loading.textContent = `${chairStates.length}개 좌석을 감지했어요`;
+  if (loading) loading.textContent = simulation.availableSeats ? `자리가 ${simulation.availableSeats}석 남았어요` : "지금은 앉을 수 있는 자리가 없어요";
+}
+
+function deterministicSeatSimulation(code, lounge, chairs, tables, outlets, crowdFallback) {
+  const timeKey = normalizedPopulousKey(simulationTimeValue());
+  const chairStates = chairs.map((chair, index) => ({
+    ...chair,
+    state: deterministicSeatOccupied(code, lounge.raw || {}, index, timeKey, crowdFallback) ? "bad" : "good",
+  }));
+  const tableStates = tables.map((table) => {
+    const nearChairs = nearestBoxes(table, chairStates, Math.max(table.w, table.h) * 1.45);
+    return { ...table, state: nearChairs.some((chair) => chair.state === "bad") ? "bad" : "good" };
+  });
+  const restrictedChairs = chairStates.map((chair) => {
+    if (chair.state === "bad") return chair;
+    const sharedOccupiedTable = tableStates.some((table) => table.state === "bad" && nearestBoxes(chair, [table], Math.max(table.w, table.h) * 1.45).length);
+    return sharedOccupiedTable ? { ...chair, state: "warn" } : chair;
+  });
+  const outletStates = outlets.map((outlet, index) => {
+    const nearOccupiedChair = nearestBoxes(outlet, restrictedChairs, 90).some((item) => item.state === "bad");
+    const nearOccupiedTable = nearestBoxes(outlet, tableStates, 120).some((item) => item.state === "bad");
+    if (!nearOccupiedChair && !nearOccupiedTable) return { ...outlet, state: "good" };
+    const used = stableRandom(`${code}-${timeKey}-outlet-${index}`) < 0.7;
+    return { ...outlet, state: used ? "bad" : "warn" };
+  });
+  return {
+    chairs: restrictedChairs,
+    tables: tableStates,
+    outlets: outletStates,
+    availableSeats: restrictedChairs.filter((chair) => chair.state === "good").length,
+    availableOutlets: outletStates.filter((outlet) => outlet.state === "good").length,
+  };
+}
+
+function deterministicSeatOccupied(code, row, index, targetTime, crowdFallback) {
+  let occupied = false;
+  const targetMinutes = timeLabelToMinutes(targetTime);
+  for (let minutes = 0; minutes <= targetMinutes; minutes += 5) {
+    const time = `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
+    if (!isOpenAt(row, minutes)) {
+      occupied = false;
+      continue;
+    }
+    const baseP = populousValueAt(time, clamp(crowdFallback / 100, 0, 1));
+    const persistence = clamp(numberValue(row.p_adjusted, row.change_p || 0.9), 0, 1);
+    const defaultLoad = clamp(numberValue(row.default_populous, baseP), 0, 1);
+    const p = clamp(baseP * persistence + defaultLoad * (1 - persistence), 0, 1);
+    const r1 = stableRandom(`${code}-${index}-${time}-a`);
+    const z = inverseNormal(clamp(stableRandom(`${code}-${index}-${time}-b`), 0.001, 0.999));
+    if (!occupied) {
+      occupied = r1 < p && z > p;
+    } else if (r1 < p) {
+      occupied = true;
+    } else {
+      occupied = !(z > p);
+    }
+  }
+  return occupied;
+}
+
+function stableRandom(seed) {
+  let hash = 2166136261;
+  [...String(seed)].forEach((char) => {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  });
+  return (hash >>> 0) / 4294967295;
+}
+
+function inverseNormal(p) {
+  const a1 = -39.6968302866538;
+  const a2 = 220.946098424521;
+  const a3 = -275.928510446969;
+  const a4 = 138.357751867269;
+  const a5 = -30.6647980661472;
+  const a6 = 2.50662827745924;
+  const b1 = -54.4760987982241;
+  const b2 = 161.585836858041;
+  const b3 = -155.698979859887;
+  const b4 = 66.8013118877197;
+  const b5 = -13.2806815528857;
+  const c1 = -0.00778489400243029;
+  const c2 = -0.322396458041136;
+  const c3 = -2.40075827716184;
+  const c4 = -2.54973253934373;
+  const c5 = 4.37466414146497;
+  const c6 = 2.93816398269878;
+  const d1 = 0.00778469570904146;
+  const d2 = 0.32246712907004;
+  const d3 = 2.445134137143;
+  const d4 = 3.75440866190742;
+  const low = 0.02425;
+  const high = 1 - low;
+  if (p < low) {
+    const q = Math.sqrt(-2 * Math.log(p));
+    return (((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) / ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+  }
+  if (p > high) {
+    const q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) / ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+  }
+  const q = p - 0.5;
+  const r = q * q;
+  return (((((a1 * r + a2) * r + a3) * r + a4) * r + a5) * r + a6) * q / (((((b1 * r + b2) * r + b3) * r + b4) * r + b5) * r + 1);
 }
 
 async function loadPlanLayer(code, fallback, type) {
@@ -1623,24 +1836,32 @@ function renderTrend(lounge) {
 
 function trendPoints(crowdByTime) {
   const values = crowdByTime.length ? crowdByTime : [{ value: 50 }, { value: 50 }];
+  const maxValue = Math.max(...values.map((item) => item.value), 100);
   return values.map((item, index) => {
     const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
-    const y = 100 - clamp(item.value, 0, 100);
+    const y = 100 - clamp((item.value / maxValue) * 100, 0, 100);
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   }).join(" ");
 }
 
 function timeChartLabels(crowdByTime) {
-  const values = crowdByTime.length ? crowdByTime : [{ time: "0830" }, { time: "2230" }];
-  return values.map((item) => `<small>${formatHourNumber(item.time)}</small>`).join("");
+  return timeChartLabelItems(crowdByTime).map((item) => `<small>${formatHourNumber(item.time)}</small>`).join("");
 }
 
 function timeLabelCount(crowdByTime) {
-  return crowdByTime.length || 2;
+  return timeChartLabelItems(crowdByTime).length || 2;
+}
+
+function timeChartLabelItems(crowdByTime) {
+  const values = crowdByTime.length ? crowdByTime : [{ time: "8:30" }, { time: "22:30" }];
+  return values.filter((item, index) => {
+    const minutes = timeKeyToMinutes(item.time);
+    return index === 0 || index === values.length - 1 || minutes % 60 === 0;
+  });
 }
 
 function formatHourNumber(time) {
-  const hour = Number(String(time).slice(0, 2));
+  const hour = Math.floor(timeKeyToMinutes(time) / 60);
   if (!Number.isFinite(hour)) return "";
   return String(hour % 12 || 12);
 }
@@ -1654,8 +1875,8 @@ function currentTrendPoint(crowdByTime) {
   });
   return {
     x: crowdByTime.length === 1 ? 0 : (nearestIndex / (crowdByTime.length - 1)) * 100,
-    y: 100 - clamp(crowdByTime[nearestIndex].value, 0, 100),
-    state: crowdMetricFromValue(crowdByTime[nearestIndex].value).tone,
+    y: 100 - clamp((crowdByTime[nearestIndex].value / Math.max(...crowdByTime.map((item) => item.value), 100)) * 100, 0, 100),
+    state: crowdMetricFromScore(crowdScoreFromValue(crowdByTime[nearestIndex].value)).tone,
   };
 }
 
@@ -1694,8 +1915,9 @@ function todayDayLabel() {
 }
 
 function formatTimeLabel(time) {
-  const hour = Number(time.slice(0, 2));
-  const minute = time.slice(2);
+  const minutes = timeKeyToMinutes(time);
+  const hour = Math.floor(minutes / 60);
+  const minute = String(minutes % 60).padStart(2, "0");
   const period = hour < 12 ? "오전" : "오후";
   const displayHour = hour % 12 || 12;
   return `${period} ${displayHour}:${minute}`;
@@ -2637,7 +2859,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=59").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=60").catch(() => {}));
 }
 
 async function boot() {
