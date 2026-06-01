@@ -918,10 +918,10 @@ function renderLoungeCard(lounge) {
           </div>
           <p>${lounge.building} ${lounge.floor} · ${lounge.distance}</p>
           <strong class="status mark-${lounge.statusTone}">${statusText[lounge.status]}</strong>
-          ${lounge.recommended ? `<em class="arrival-seat-note">지금 가면 앉을 수 있어요</em>` : ""}
           <div class="tags scroll-tags">${lounge.tags.map((tag) => `<span>${tag}</span>`).join("")}</div>
         </div>
       </div>
+      ${lounge.recommended ? `<button class="recommend-tail" data-open-lounge="${lounge.id}">지금 가면 앉을 수 있어요</button>` : ""}
     </article>
   `;
 }
@@ -1056,7 +1056,7 @@ function buildingPhotoFor(code) {
     if (!best || image.code > best.code) return image;
     return best;
   }, null);
-  return match ? `url("${match.src}") center / cover no-repeat` : "linear-gradient(135deg, #FFFFFF, #F2F4F7)";
+  return match ? `url(${match.src}) center / cover no-repeat` : "linear-gradient(135deg, #FFFFFF, #F2F4F7)";
 }
 
 function formatDistance(distanceM) {
@@ -1607,7 +1607,9 @@ function inverseNormal(p) {
 }
 
 async function loadPlanLayer(code, fallback, type) {
-  const candidates = [`./seating-plans/${code}-${type}.png`, `./seating-plans/${fallback}-${type}.png`, `./seating-plans/Default-open-${type}.png`];
+  const candidates = type === "E"
+    ? [`./seating-plans/${code}-${type}.png`]
+    : [`./seating-plans/${code}-${type}.png`, `./seating-plans/${fallback}-${type}.png`, `./seating-plans/Default-open-${type}.png`];
   for (const src of candidates) {
     try {
       return await loadImage(src);
@@ -3121,7 +3123,7 @@ async function loadStaticSeatOccupancyData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=70").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=73").catch(() => {}));
 }
 
 async function boot() {

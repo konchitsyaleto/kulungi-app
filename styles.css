@@ -500,16 +500,6 @@ p {
   background: var(--bad);
 }
 
-.arrival-seat-note {
-  display: block;
-  margin-top: 4px;
-  color: var(--accent);
-  font-size: 12px;
-  line-height: 1.2;
-  font-style: normal;
-  font-weight: 650;
-}
-
 .tags {
   display: flex;
   gap: 6px;
@@ -2250,7 +2240,7 @@ body {
 
 .lounge-card-wrap {
   position: relative;
-  padding-bottom: 0;
+  padding-bottom: 18px;
 }
 
 .lounge-card {
