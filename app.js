@@ -173,15 +173,22 @@ let lounges = [
 const purposeOptions = ["공부", "팀플", "짧은 휴식", "잠", "취식", "수다", "노트북 사용"];
 const partyOptions = ["혼자", "둘이", "서너명", "다섯명 이상"];
 const featureOptions = ["밝음", "어두움", "조용함", "딱딱한 좌석", "소파", "낮은 테이블", "높은 테이블", "다인석", "콘센트", "프린터", "정수기", "합석 가능", "취식 가능"];
+const AUTH_USERS_KEY = "kulungi-users-v1";
+const AUTH_SESSION_KEY = "kulungi-session-v1";
+const AUTH_GUEST_KEY = "kulungi-guest-v1";
+const adminNicknames = ["윤서"];
+let collegeMajorData = [];
 
 if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
 const campuses = buildCampuses(lounges);
+const defaultFavorites = lounges.filter((lounge) => lounge.favorite).map((lounge) => lounge.id);
+const defaultPresets = [{ name: "개인 공부", purpose: ["공부"], features: ["조용함", "콘센트"], campus: "", buildings: [], departureMode: "now" }];
 
 const state = {
-  route: "home",
+  route: initialRoute(),
   selectedLoungeId: lounges[0].id,
   favoritesOnly: false,
-  favorites: new Set(lounges.filter((lounge) => lounge.favorite).map((lounge) => lounge.id)),
+  favorites: new Set(defaultFavorites),
   selectedPurpose: [],
   selectedParty: "",
   selectedFeatures: [],
@@ -195,11 +202,15 @@ const state = {
   departureDate: "오늘",
   showDatePicker: false,
   sortMode: "recommendation",
-  presets: [{ name: "개인 공부", purpose: ["공부"], features: ["조용함", "콘센트"], campus: "", buildings: [], departureMode: "now" }],
+  presets: [...defaultPresets],
   modal: null,
   activeMetric: null,
   trendOpen: false,
   profilePage: "",
+  authError: "",
+  authPasswordVisible: false,
+  currentUser: null,
+  isGuest: Boolean(localStorage.getItem(AUTH_GUEST_KEY)),
   notifications: {
     favorite: true,
     near: true,
@@ -211,11 +222,13 @@ const state = {
     department: "국어국문학과",
     saved: false,
     photo: "",
+    role: "user",
   },
 };
 
 const app = document.querySelector("#app");
 let lastRenderedRoute = "";
+applyStoredSession();
 
 function icon(name) {
   const icons = {
@@ -228,6 +241,7 @@ function icon(name) {
     star: '<svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z"/></svg>',
     plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
     clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    eye: '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
     settings: '<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V22a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H2a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1h.2a2 2 0 1 1 0 4H22a1.7 1.7 0 0 0-1.5 1Z"/></svg>',
   };
   return icons[name] || "";
@@ -239,6 +253,79 @@ function metricIcon(metric) {
 
 function getSelectedLounge() {
   return lounges.find((lounge) => lounge.id === state.selectedLoungeId) || lounges[0];
+}
+
+function initialRoute() {
+  if (localStorage.getItem(AUTH_SESSION_KEY) || localStorage.getItem(AUTH_GUEST_KEY)) return "home";
+  return "welcome";
+}
+
+function readUsers() {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function writeUsers(users) {
+  localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+}
+
+function applyStoredSession() {
+  const nickname = localStorage.getItem(AUTH_SESSION_KEY);
+  if (!nickname) return;
+  const user = readUsers()[nickname];
+  if (!user) {
+    localStorage.removeItem(AUTH_SESSION_KEY);
+    return;
+  }
+  applyUser(user);
+}
+
+function applyUser(user) {
+  state.currentUser = user.nickname;
+  state.isGuest = false;
+  state.profile = { ...state.profile, ...user.profile, saved: false, role: user.role || "user" };
+  state.favorites = new Set(user.favorites?.length ? user.favorites : defaultFavorites);
+  state.presets = user.presets?.length ? user.presets : [...defaultPresets];
+}
+
+function persistCurrentUser() {
+  if (!state.currentUser) return;
+  const users = readUsers();
+  const user = users[state.currentUser];
+  if (!user) return;
+  user.profile = { ...state.profile, saved: false };
+  user.favorites = [...state.favorites];
+  user.presets = state.presets;
+  user.role = adminNicknames.includes(user.nickname) ? "admin" : user.role || "user";
+  users[state.currentUser] = user;
+  writeUsers(users);
+}
+
+async function passwordHash(password) {
+  const bytes = new TextEncoder().encode(password);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function colleges() {
+  return [...new Set(collegeMajorData.map((item) => item.college).filter(Boolean))];
+}
+
+function majorsForCollege(college) {
+  return collegeMajorData.filter((item) => item.college === college).map((item) => item.major).filter(Boolean);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;",
+  }[char]));
 }
 
 function summaryTitle() {
@@ -364,6 +451,9 @@ function recommendationPercent(lounge) {
 function render() {
   const routeChanged = lastRenderedRoute && lastRenderedRoute !== state.route;
   const views = {
+    welcome: renderWelcome,
+    signup: renderSignup,
+    login: renderLogin,
     home: renderHome,
     detail: renderDetail,
     search: renderSearch,
@@ -377,6 +467,103 @@ function render() {
   adjustHeroTone();
   if (routeChanged) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   lastRenderedRoute = state.route;
+}
+
+function renderWelcome() {
+  return `
+    <section class="screen auth-screen">
+      <div class="auth-center">
+        <div class="auth-logo">kulungi</div>
+        <h1>안녕하세요.<br />쿠룽지에 오신 걸 환영해요.</h1>
+        <div class="auth-actions">
+          <button class="auth-primary" data-auth-route="signup">쿠룽지 친구 되기</button>
+          <button class="auth-ghost" data-guest-start>친구는 좀 부담스러워요</button>
+          <button class="auth-login-link" data-auth-route="login">이미 쿠룽지 친구예요</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderSignup() {
+  return `
+    <section class="screen auth-screen">
+      <header class="plain-header">
+        <button class="icon-btn" data-auth-route="welcome" aria-label="뒤로가기">${icon("back")}</button>
+        <h1>쿠룽지 친구 되기</h1>
+        <span></span>
+      </header>
+      <form class="auth-form" data-signup-form>
+        <div class="auth-photo">
+          ${profilePhoto("edit-avatar")}
+          <button type="button" data-auth-photo>바꾸기</button>
+          <input class="visually-hidden" type="file" accept="image/*" data-auth-photo-input />
+        </div>
+        ${authField("nickname", "닉네임")}
+        ${authField("password", "비밀번호", "password")}
+        ${collegeSelectField()}
+        ${majorSelectField()}
+        ${state.authError ? `<p class="auth-error">${escapeHtml(state.authError)}</p>` : ""}
+        <button class="auth-primary" type="submit">친구 되기</button>
+      </form>
+    </section>
+  `;
+}
+
+function renderLogin() {
+  return `
+    <section class="screen auth-screen">
+      <header class="plain-header">
+        <button class="icon-btn" data-auth-route="welcome" aria-label="뒤로가기">${icon("back")}</button>
+        <h1>이미 쿠룽지 친구예요</h1>
+        <span></span>
+      </header>
+      <form class="auth-form compact" data-login-form>
+        ${authField("nickname", "닉네임")}
+        ${authField("password", "비밀번호", "password")}
+        ${state.authError ? `<p class="auth-error">${escapeHtml(state.authError)}</p>` : ""}
+        <button class="auth-primary" type="submit">로그인</button>
+      </form>
+    </section>
+  `;
+}
+
+function authField(name, placeholder, type = "text") {
+  const isPassword = type === "password";
+  const inputType = isPassword && !state.authPasswordVisible ? "password" : "text";
+  return `
+    <label class="auth-field">
+      <input name="${name}" type="${inputType}" placeholder="${placeholder}" autocomplete="${isPassword ? "current-password" : "username"}" />
+      ${isPassword ? `<button type="button" data-toggle-auth-password aria-label="비밀번호 보기">${icon("eye")}</button>` : ""}
+    </label>
+  `;
+}
+
+function collegeSelectField() {
+  const options = colleges();
+  const selected = state.profile.college || options[0] || "";
+  return `
+    <label class="auth-field select-field">
+      <select name="college" data-auth-college>
+        <option value="">대학</option>
+        ${options.map((college) => `<option value="${escapeHtml(college)}" ${selected === college ? "selected" : ""}>${escapeHtml(college)}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function majorSelectField() {
+  const college = state.profile.college || colleges()[0] || "";
+  const options = majorsForCollege(college);
+  const selected = options.includes(state.profile.department) ? state.profile.department : options[0] || "";
+  return `
+    <label class="auth-field select-field">
+      <select name="department">
+        <option value="">학부/과/전공</option>
+        ${options.map((major) => `<option value="${escapeHtml(major)}" ${selected === major ? "selected" : ""}>${escapeHtml(major)}</option>`).join("")}
+      </select>
+    </label>
+  `;
 }
 
 function alignTimePicker() {
@@ -1203,7 +1390,8 @@ function renderProfile() {
       <header class="profile-header">
         ${profilePhoto("avatar-img")}
         <h1>${state.profile.name}님</h1>
-        <p>오늘도 딱 맞는 라운지를 찾아볼게요.</p>
+        <p>${escapeHtml(state.profile.college)} ${escapeHtml(state.profile.department)}</p>
+        ${state.profile.role === "admin" ? `<strong class="admin-badge">관리자</strong>` : ""}
       </header>
       <div class="settings-list">
         ${items.map(([id, title, beta]) => `
@@ -1250,15 +1438,20 @@ function profileTitle() {
 }
 
 function renderProfileEdit() {
+  const collegeOptions = colleges();
+  const college = state.profile.college || collegeOptions[0] || "";
+  const majorOptions = majorsForCollege(college);
+  const department = majorOptions.includes(state.profile.department) ? state.profile.department : majorOptions[0] || state.profile.department;
   return `
     <section class="subpage-stack">
       <div class="profile-edit-card">
         ${profilePhoto("edit-avatar")}
         <button class="profile-photo-button" data-profile-photo>프로필 변경</button>
         <input class="visually-hidden" type="file" accept="image/*" data-profile-photo-input />
-        <label>사용자 이름<input data-profile-field="name" value="${state.profile.name}" /></label>
-        <label>소속대학<select data-profile-field="college">${["문과대학", "경영대학", "공과대학"].map((college) => `<option ${state.profile.college === college ? "selected" : ""}>${college}</option>`).join("")}</select></label>
-        <label>학과<select data-profile-field="department">${["국어국문학과", "경영학과", "컴퓨터학과"].map((department) => `<option ${state.profile.department === department ? "selected" : ""}>${department}</option>`).join("")}</select></label>
+        <label>사용자 이름<input data-profile-field="name" value="${escapeHtml(state.profile.name)}" /></label>
+        <label>소속대학<select data-profile-field="college">${collegeOptions.map((item) => `<option ${college === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select></label>
+        <label>학과<select data-profile-field="department">${majorOptions.map((item) => `<option ${department === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select></label>
+        <p class="account-note">즐겨찾기와 프리셋은 이 계정에 자동 저장됩니다.</p>
         <p class="autosave-note">${state.profile.saved ? "변경사항이 자동 저장되었어요" : "변경하면 자동으로 저장돼요"}</p>
       </div>
     </section>
@@ -1403,6 +1596,96 @@ function renderModal() {
 }
 
 function bindEvents() {
+  document.querySelectorAll("[data-auth-route]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.route = button.dataset.authRoute;
+      state.authError = "";
+      render();
+    });
+  });
+  document.querySelector("[data-guest-start]")?.addEventListener("click", () => {
+    localStorage.setItem(AUTH_GUEST_KEY, "true");
+    localStorage.removeItem(AUTH_SESSION_KEY);
+    state.isGuest = true;
+    state.currentUser = null;
+    state.route = "home";
+    render();
+  });
+  document.querySelector("[data-toggle-auth-password]")?.addEventListener("click", () => {
+    state.authPasswordVisible = !state.authPasswordVisible;
+    render();
+  });
+  document.querySelector("[data-auth-college]")?.addEventListener("change", (event) => {
+    state.profile.college = event.currentTarget.value;
+    state.profile.department = majorsForCollege(state.profile.college)[0] || "";
+    render();
+  });
+  document.querySelector("[data-auth-photo]")?.addEventListener("click", () => {
+    document.querySelector("[data-auth-photo-input]")?.click();
+  });
+  document.querySelector("[data-auth-photo-input]")?.addEventListener("change", (event) => {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      state.profile.photo = reader.result;
+      render();
+    });
+    reader.readAsDataURL(file);
+  });
+  document.querySelector("[data-signup-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nickname = form.get("nickname")?.toString().trim();
+    const password = form.get("password")?.toString();
+    const college = form.get("college")?.toString();
+    const department = form.get("department")?.toString();
+    if (!nickname || !password || !college || !department) {
+      state.authError = "모든 항목을 입력해주세요.";
+      render();
+      return;
+    }
+    const users = readUsers();
+    if (users[nickname]) {
+      state.authError = "이미 사용 중인 닉네임입니다.";
+      render();
+      return;
+    }
+    const user = {
+      nickname,
+      passwordHash: await passwordHash(password),
+      role: adminNicknames.includes(nickname) ? "admin" : "user",
+      profile: { name: nickname, college, department, photo: state.profile.photo, saved: false, role: adminNicknames.includes(nickname) ? "admin" : "user" },
+      favorites: [...state.favorites],
+      presets: state.presets,
+    };
+    users[nickname] = user;
+    writeUsers(users);
+    localStorage.setItem(AUTH_SESSION_KEY, nickname);
+    localStorage.removeItem(AUTH_GUEST_KEY);
+    applyUser(user);
+    state.route = "home";
+    state.authError = "";
+    render();
+  });
+  document.querySelector("[data-login-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nickname = form.get("nickname")?.toString().trim();
+    const password = form.get("password")?.toString();
+    const user = readUsers()[nickname];
+    if (!user || user.passwordHash !== await passwordHash(password || "")) {
+      state.authError = "닉네임이나 비밀번호를 확인해주세요.";
+      render();
+      return;
+    }
+    localStorage.setItem(AUTH_SESSION_KEY, nickname);
+    localStorage.removeItem(AUTH_GUEST_KEY);
+    applyUser(user);
+    state.route = "home";
+    state.authError = "";
+    render();
+  });
   document.querySelectorAll("[data-route]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -1433,6 +1716,7 @@ function bindEvents() {
       event.stopPropagation();
       const id = button.dataset.favorite;
       state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
+      persistCurrentUser();
       render();
     });
   });
@@ -1506,12 +1790,18 @@ function bindEvents() {
   document.querySelectorAll("[data-profile-field]").forEach((field) => {
     const updateProfile = () => {
       state.profile[field.dataset.profileField] = field.value;
+      if (field.dataset.profileField === "college") {
+        const majors = majorsForCollege(state.profile.college);
+        if (!majors.includes(state.profile.department)) state.profile.department = majors[0] || "";
+      }
       state.profile.saved = true;
+      persistCurrentUser();
       render();
     };
     field.addEventListener("input", () => {
       state.profile[field.dataset.profileField] = field.value;
       state.profile.saved = true;
+      persistCurrentUser();
     });
     field.addEventListener("change", updateProfile);
     field.addEventListener("blur", updateProfile);
@@ -1526,6 +1816,7 @@ function bindEvents() {
     reader.addEventListener("load", () => {
       state.profile.photo = reader.result;
       state.profile.saved = true;
+      persistCurrentUser();
       render();
     });
     reader.readAsDataURL(file);
@@ -1563,6 +1854,7 @@ function bindEvents() {
     const name = new FormData(event.currentTarget).get("presetName")?.toString().trim();
     if (name) {
       state.presets.push({ name, purpose: [...state.selectedPurpose], party: state.selectedParty, features: [...state.selectedFeatures], campus: state.selectedCampus, buildings: [...state.selectedBuildings], departureMode: state.departureMode });
+      persistCurrentUser();
     }
     state.modal = null;
     render();
@@ -1634,8 +1926,33 @@ function toggleChip(type, value) {
   render();
 }
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=24").catch(() => {}));
+async function loadCollegeMajorData() {
+  try {
+    const response = await fetch("./college-major.csv");
+    const text = await response.text();
+    collegeMajorData = parseCollegeMajorCsv(text);
+    if (!state.profile.college && colleges()[0]) state.profile.college = colleges()[0];
+    if (!state.profile.department && majorsForCollege(state.profile.college)[0]) state.profile.department = majorsForCollege(state.profile.college)[0];
+    render();
+  } catch {
+    collegeMajorData = [
+      { college: "문과대학", major: "국어국문학과" },
+      { college: "경영대학", major: "경영학과" },
+      { college: "공과대학", major: "컴퓨터학과" },
+    ];
+  }
 }
 
+function parseCollegeMajorCsv(text) {
+  return text.trim().split(/\r?\n/).slice(1).map((line) => {
+    const [college, major] = line.replace(/^\uFEFF/, "").split(",");
+    return { college: college?.trim(), major: major?.trim() };
+  }).filter((item) => item.college && item.major);
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=25").catch(() => {}));
+}
+
+loadCollegeMajorData();
 render();

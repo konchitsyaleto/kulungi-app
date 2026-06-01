@@ -70,6 +70,137 @@ p {
   background: var(--bg);
 }
 
+.auth-screen {
+  display: grid;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + 18px) 20px calc(env(safe-area-inset-bottom) + 24px);
+}
+
+.auth-center {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  text-align: center;
+}
+
+.auth-logo {
+  width: 104px;
+  height: 104px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--white);
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.auth-center h1 {
+  font-size: 25px;
+  line-height: 1.35;
+  font-weight: 900;
+}
+
+.auth-actions,
+.auth-form {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form {
+  align-self: start;
+  padding-top: 18px;
+}
+
+.auth-form.compact {
+  align-self: center;
+}
+
+.auth-primary {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--white);
+  font-weight: 900;
+  text-align: center;
+}
+
+.auth-ghost,
+.auth-login-link {
+  min-height: 38px;
+  color: var(--soft-text);
+  font-weight: 800;
+  text-align: center;
+}
+
+.auth-login-link {
+  color: var(--ink);
+}
+
+.auth-photo {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.auth-photo button {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.auth-field {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 0 14px 0 18px;
+  border-radius: 999px;
+  background: var(--gray);
+}
+
+.auth-field input,
+.auth-field select {
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 800;
+  outline: none;
+}
+
+.auth-field button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--soft-text);
+}
+
+.auth-field svg {
+  width: 20px;
+  height: 20px;
+}
+
+.select-field {
+  grid-template-columns: 1fr;
+}
+
+.auth-error {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 850;
+  text-align: center;
+}
+
 .screen {
   min-height: 100dvh;
   position: relative;
@@ -1091,6 +1222,19 @@ p {
   font-weight: 700;
 }
 
+.admin-badge {
+  display: inline-grid;
+  place-items: center;
+  min-height: 26px;
+  margin-top: 10px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .settings-list {
   display: grid;
   gap: 10px;
@@ -1164,6 +1308,13 @@ p {
   border: 0;
   padding: 0 12px;
   background: var(--bg);
+}
+
+.account-note {
+  color: var(--soft-text);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
 }
 
 .toggle-row {
