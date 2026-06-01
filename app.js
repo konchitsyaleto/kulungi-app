@@ -2136,6 +2136,7 @@ function updateHomeSearchResults() {
   list.querySelectorAll("[data-lounge-card-name]").forEach((card) => {
     const visible = !query || card.dataset.loungeCardName.includes(query);
     card.hidden = !visible;
+    card.style.display = visible ? "" : "none";
     if (visible) visibleCount += 1;
   });
   const empty = list.querySelector("[data-search-empty]");
@@ -2632,7 +2633,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=56").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=57").catch(() => {}));
 }
 
 async function boot() {
