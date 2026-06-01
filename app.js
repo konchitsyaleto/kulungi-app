@@ -1149,8 +1149,14 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
     item.height = Math.max(item.stateImage.height, item.image.height);
     item.y = item.bottomY - item.height;
   });
-  const width = Math.ceil(Math.max(...all.map((item) => item.x + item.width), 1));
-  const height = Math.ceil(Math.max(...all.map((item) => item.bottomY), 1));
+  const minX = Math.min(...all.map((item) => item.x), 0);
+  const minY = Math.min(...all.map((item) => item.y), 0);
+  const maxX = Math.max(...all.map((item) => item.x + item.width), 1);
+  const maxY = Math.max(...all.map((item) => item.bottomY), 1);
+  const offsetX = -minX;
+  const offsetY = -minY;
+  const width = Math.ceil(maxX - minX);
+  const height = Math.ceil(maxY - minY);
   const ratio = window.devicePixelRatio || 1;
   canvas.width = width * ratio;
   canvas.height = height * ratio;
@@ -1167,8 +1173,8 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
       return a.sortY - b.sortY;
     })
     .forEach((item) => {
-      context.drawImage(item.stateImage, item.x, item.y);
-      context.drawImage(item.image, item.x, item.y);
+      context.drawImage(item.stateImage, item.x + offsetX, item.y + offsetY);
+      context.drawImage(item.image, item.x + offsetX, item.y + offsetY);
     });
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
@@ -1195,13 +1201,17 @@ function parseBlueprintCsv(text) {
   const headerIndex = lines.findIndex((line) => /^(seat|table|Elec),/.test(line));
   if (headerIndex < 0) return [];
   const headers = lines[headerIndex].split(",").map((item) => item.trim());
-  return lines.slice(headerIndex + 1).filter(Boolean).map((line) => {
-    const cells = line.split(",");
-    return headers.reduce((row, header, index) => {
-      row[header] = cells[index]?.trim() || "";
-      return row;
-    }, {});
-  });
+  return lines
+    .slice(headerIndex + 1)
+    .filter(Boolean)
+    .map((line) => {
+      const cells = line.split(",");
+      return headers.reduce((row, header, index) => {
+        row[header] = cells[index]?.trim() || "";
+        return row;
+      }, {});
+    })
+    .filter((row) => (row.type || row.Elec) && row.pos_x !== "" && row.pos_y !== "");
 }
 
 function currentBlueprintTimeKey(timeKeys) {
@@ -2342,7 +2352,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=41").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=42").catch(() => {}));
 }
 
 async function boot() {
