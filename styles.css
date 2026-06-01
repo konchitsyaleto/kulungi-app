@@ -119,13 +119,13 @@ p {
 
 .auth-primary {
   width: 100%;
-  min-height: 42px;
+  min-height: 34px;
   display: grid;
   place-items: center;
   border-radius: 999px;
   background: var(--accent);
   color: var(--white);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
   text-align: center;
 }
@@ -157,11 +157,11 @@ p {
 }
 
 .auth-field {
-  min-height: 42px;
+  min-height: 34px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  padding: 0 14px 0 18px;
+  padding: 0 10px 0 14px;
   border-radius: 999px;
   background: var(--gray);
 }
@@ -170,7 +170,7 @@ p {
 .auth-field select {
   width: 100%;
   min-width: 0;
-  height: 42px;
+  height: 34px;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -179,16 +179,16 @@ p {
 }
 
 .auth-field button {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   color: var(--soft-text);
 }
 
 .auth-field svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .select-field {
