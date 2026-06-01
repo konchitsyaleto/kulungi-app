@@ -1635,7 +1635,7 @@ function toggleChip(type, value) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=23").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=24").catch(() => {}));
 }
 
 render();
