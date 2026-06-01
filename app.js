@@ -224,7 +224,7 @@ const state = {
     password: "",
   },
   currentUser: null,
-  isGuest: Boolean(localStorage.getItem(AUTH_GUEST_KEY)),
+  isGuest: false,
   notifications: {
     favorite: true,
     near: true,
@@ -270,7 +270,7 @@ function getSelectedLounge() {
 }
 
 function initialRoute() {
-  if (localStorage.getItem(AUTH_SESSION_KEY) || localStorage.getItem(AUTH_GUEST_KEY)) return "home";
+  if (localStorage.getItem(AUTH_SESSION_KEY)) return "home";
   return "welcome";
 }
 
@@ -287,6 +287,7 @@ function writeUsers(users) {
 }
 
 function applyStoredSession() {
+  localStorage.removeItem(AUTH_GUEST_KEY);
   const nickname = localStorage.getItem(AUTH_SESSION_KEY);
   if (!nickname) return;
   const user = readUsers()[nickname];
@@ -1453,6 +1454,7 @@ function chip(item, type) {
 
 function renderProfile() {
   if (state.profilePage) return renderProfileSubpage();
+  if (!state.currentUser) return renderGuestProfile();
   const items = [
     ["profile", "프로필 관리"],
     ["notifications", "알림 설정"],
@@ -1482,7 +1484,37 @@ function renderProfile() {
   `;
 }
 
+function renderGuestProfile() {
+  const items = [
+    ["profile", "프로필 관리"],
+    ["notifications", "알림 설정"],
+    ["everytime", "에브리타임 연동", "beta"],
+    ["about", "쿠룽지코 소개"],
+    ["privacy", "개인정보 보호 및 설정"],
+  ];
+  return `
+    <section class="screen with-tabbar profile-screen">
+      <header class="profile-header">
+        ${profilePhoto("avatar-img")}
+        <h1>아직 쿠룽지 친구가 아니에요</h1>
+        <p>친구가 되면 프로필, 즐겨찾기, 프리셋을 저장할 수 있어요.</p>
+      </header>
+      <div class="settings-list">
+        ${items.map(([id, title, beta]) => `
+          <button data-profile-page="${id}">
+            ${icon("settings")}
+            <span><strong>${title}${beta ? `<sup>${beta}</sup>` : ""}</strong></span>
+            ${icon("chevron")}
+          </button>
+        `).join("")}
+      </div>
+      ${renderTabbar()}
+    </section>
+  `;
+}
+
 function renderProfileSubpage() {
+  if (!state.currentUser && state.profilePage === "profile") return renderAuthRequiredProfile();
   const pages = {
     profile: renderProfileEdit,
     notifications: renderNotificationSettings,
@@ -1498,6 +1530,23 @@ function renderProfileSubpage() {
         <span></span>
       </header>
       ${pages[state.profilePage]()}
+    </section>
+  `;
+}
+
+function renderAuthRequiredProfile() {
+  return `
+    <section class="screen profile-subscreen">
+      <header class="plain-header">
+        <button class="icon-btn" data-profile-back aria-label="뒤로가기">${icon("back")}</button>
+        <h1>프로필 관리</h1>
+        <span></span>
+      </header>
+      <div class="auth-required-card">
+        <h2>쿠룽지 친구가 되어야 해요</h2>
+        <p>프로필 정보와 저장한 설정은 친구 계정에 보관됩니다.</p>
+        <button class="auth-primary" data-auth-route="signup">쿠룽지 친구 되기</button>
+      </div>
     </section>
   `;
 }
@@ -1680,8 +1729,8 @@ function bindEvents() {
     });
   });
   document.querySelector("[data-guest-start]")?.addEventListener("click", () => {
-    localStorage.setItem(AUTH_GUEST_KEY, "true");
     localStorage.removeItem(AUTH_SESSION_KEY);
+    localStorage.removeItem(AUTH_GUEST_KEY);
     state.isGuest = true;
     state.currentUser = null;
     state.route = "home";
@@ -2058,7 +2107,7 @@ function parseCollegeMajorCsv(text) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=27").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=28").catch(() => {}));
 }
 
 async function boot() {
