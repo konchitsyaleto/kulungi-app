@@ -186,7 +186,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
   },
 });
-const adminNicknames = ["윤서"];
+const adminNicknames = ["테스트2"];
 const allowedNicknames = ["비플렉스", "강소은", "다인", "주리", "테스트2"];
 let collegeMajorData = [];
 let seatSimulationData = null;
@@ -219,6 +219,7 @@ const state = {
   modal: null,
   activeMetric: null,
   trendOpen: false,
+  simulationTime: "",
   profilePage: "",
   authError: "",
   authPasswordVisible: false,
@@ -269,7 +270,7 @@ function metricIcon(metric) {
 }
 
 function getSelectedLounge() {
-  return lounges.find((lounge) => lounge.id === state.selectedLoungeId) || lounges[0];
+  return simulateLounge(lounges.find((lounge) => lounge.id === state.selectedLoungeId) || lounges[0]);
 }
 
 function initialRoute() {
@@ -304,7 +305,8 @@ function applyStoredSession() {
 function applyUser(user) {
   state.currentUser = user.nickname;
   state.isGuest = false;
-  state.profile = { ...state.profile, ...user.profile, saved: false, role: user.role || "user" };
+  const role = adminNicknames.includes(user.nickname) ? "admin" : user.role || "user";
+  state.profile = { ...state.profile, ...user.profile, saved: false, role };
   state.favorites = new Set(user.favorites?.length ? user.favorites : defaultFavorites);
   state.presets = user.presets?.length ? user.presets : [...defaultPresets];
 }
@@ -349,7 +351,6 @@ async function restoreSupabaseSession() {
 async function loadSupabaseUserData(user) {
   const nickname = user.user_metadata?.nickname || state.currentUser || "쿠룽지 친구";
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-  const { data: admin } = await supabase.from("admins").select("user_id").eq("user_id", user.id).maybeSingle();
   const { data: favorites } = await supabase.from("favorites").select("lounge_id").eq("user_id", user.id);
   const { data: presets } = await supabase.from("presets").select("name, config").eq("user_id", user.id).order("created_at", { ascending: true });
   state.currentUser = nickname;
@@ -360,7 +361,7 @@ async function loadSupabaseUserData(user) {
     college: profile?.college || state.profile.college,
     department: profile?.department || state.profile.department,
     photo: profile?.photo || "",
-    role: admin ? "admin" : "user",
+    role: adminNicknames.includes(nickname) ? "admin" : "user",
     saved: false,
   };
   state.favorites = new Set(favorites?.length ? favorites.map((item) => item.lounge_id) : defaultFavorites);
@@ -441,7 +442,7 @@ function summaryTitle() {
 }
 
 function filteredLounges() {
-  let result = [...lounges];
+  let result = lounges.map(simulateLounge);
   if (state.favoritesOnly) result = result.filter((lounge) => state.favorites.has(lounge.id));
   if (state.selectedBuildings.length) result = result.filter((lounge) => state.selectedBuildings.includes(lounge.building));
   result.sort(sortLounges);
@@ -545,12 +546,13 @@ function comfortableLighting(lounge) {
 }
 
 function recommendationPercent(lounge) {
-  const candidates = lounges.filter((item) => (!state.favoritesOnly || state.favorites.has(item.id)) && (!state.selectedBuildings.length || state.selectedBuildings.includes(item.building)));
+  const currentLounge = simulateLounge(lounge);
+  const candidates = lounges.map(simulateLounge).filter((item) => (!state.favoritesOnly || state.favorites.has(item.id)) && (!state.selectedBuildings.length || state.selectedBuildings.includes(item.building)));
   const scores = candidates.map(scoreLounge);
   const min = Math.min(...scores);
   const max = Math.max(...scores);
   if (max === min) return 100;
-  return Math.round(((scoreLounge(lounge) - min) / (max - min)) * 100);
+  return Math.round(((scoreLounge(currentLounge) - min) / (max - min)) * 100);
 }
 
 function render() {
@@ -567,7 +569,7 @@ function render() {
     profile: renderProfile,
     map: renderMap,
   };
-  app.innerHTML = `<main class="phone-shell">${views[state.route]()}</main>${renderModal()}`;
+  app.innerHTML = `<main class="phone-shell">${renderAdminTimeBar()}${views[state.route]()}</main>${renderModal()}`;
   bindEvents();
   alignTimePicker();
   initSeatingPlans();
@@ -582,6 +584,24 @@ function accessBlocked() {
 
 function canAccessProject() {
   return allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser) || state.profile.role === "admin";
+}
+
+function isSimulationAdmin() {
+  return state.currentUser === "테스트2" || state.profile.name === "테스트2";
+}
+
+function renderAdminTimeBar() {
+  if (!isSimulationAdmin() || ["welcome", "signup", "login", "restricted"].includes(state.route)) return "";
+  return `
+    <div class="admin-time-bar">
+      <label>
+        <span>시간 설정</span>
+        <select data-simulation-time>
+          ${simulationTimeOptions().map((time) => `<option value="${time}" ${simulationTimeValue() === time ? "selected" : ""}>${time}</option>`).join("")}
+        </select>
+      </label>
+    </div>
+  `;
 }
 
 function renderRestricted() {
@@ -994,14 +1014,57 @@ function chargeMetricFromData(chargeAvailable, crowd) {
   return { value: "보통", tone: "warn" };
 }
 
-function currentCrowdValue(crowdByTime, fallback = 50) {
+function currentCrowdValue(crowdByTime, fallback = 50, minutes = currentClockMinutes()) {
   if (!crowdByTime.length) return fallback;
-  const now = new Date();
-  const minutes = now.getHours() * 60 + now.getMinutes();
   return crowdByTime.reduce((best, item) => {
     const itemMinutes = timeKeyToMinutes(item.time);
     return Math.abs(itemMinutes - minutes) < Math.abs(timeKeyToMinutes(best.time) - minutes) ? item : best;
   }, crowdByTime[0]).value;
+}
+
+function simulateLounge(lounge) {
+  if (!lounge) return lounge;
+  const currentCrowd = currentCrowdValue(lounge.crowdByTime || [], lounge.currentCrowd || numberValue(lounge.raw?.default_crowd_level, 50), simulationMinutes());
+  const currentCrowdNormalized = clamp(currentCrowd / 100, 0, 1);
+  const crowdMetric = crowdMetricFromValue(currentCrowd);
+  const sitMetric = seatMetricFromCrowd(currentCrowd);
+  const chargeMetric = chargeMetricFromData(lounge.chargeAvailable, currentCrowd);
+  const noiseMetric = noiseMetricFromValue(numberValue(lounge.raw?.sensor_noise, 45));
+  return {
+    ...lounge,
+    currentCrowd,
+    recommended: currentCrowdNormalized < 0.65,
+    status: currentCrowdNormalized < 0.4 ? "calm" : currentCrowdNormalized < 0.75 ? "normal" : "busy",
+    statusTone: crowdMetric.tone,
+    metrics: [
+      { key: "crowd", label: "혼잡도", value: crowdMetric.value, tone: crowdMetric.tone, detail: "" },
+      { key: "noise", label: "소음도", value: noiseMetric.value, tone: noiseMetric.tone, detail: "" },
+      { key: "sit", label: "자리 유무", value: sitMetric.value, tone: sitMetric.tone, detail: "" },
+      { key: "charge", label: "콘센트", value: chargeMetric.value, tone: chargeMetric.tone, detail: "" },
+    ],
+  };
+}
+
+function simulationTimeOptions() {
+  return Array.from({ length: 288 }, (_, index) => {
+    const minutes = index * 5;
+    return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  });
+}
+
+function simulationTimeValue() {
+  if (state.simulationTime) return state.simulationTime;
+  const minutes = Math.round(currentClockMinutes() / 5) * 5;
+  return `${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+function currentClockMinutes() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function simulationMinutes() {
+  return timeLabelToMinutes(simulationTimeValue());
 }
 
 function crowdTimeKeys() {
@@ -1230,8 +1293,7 @@ function normalizeBlueprintOccupancy(value) {
 
 function currentBlueprintTimeKey(timeKeys) {
   if (!timeKeys.length) return "";
-  const now = new Date();
-  const minutes = Math.round((now.getHours() * 60 + now.getMinutes()) / 5) * 5;
+  const minutes = simulationMinutes();
   const key = `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
   if (timeKeys.includes(key)) return key;
   return timeKeys.reduce((best, item) => Math.abs(timeLabelToMinutes(item) - minutes) < Math.abs(timeLabelToMinutes(best) - minutes) ? item : best, timeKeys[0]);
@@ -1479,8 +1541,7 @@ function formatHourNumber(time) {
 
 function currentTrendPoint(crowdByTime) {
   if (!crowdByTime.length) return { x: 50, y: 50 };
-  const now = new Date();
-  const minutes = now.getHours() * 60 + now.getMinutes();
+  const minutes = simulationMinutes();
   let nearestIndex = 0;
   crowdByTime.forEach((item, index) => {
     if (Math.abs(timeKeyToMinutes(item.time) - minutes) < Math.abs(timeKeyToMinutes(crowdByTime[nearestIndex].time) - minutes)) nearestIndex = index;
@@ -1535,6 +1596,7 @@ function formatTimeLabel(time) {
 }
 
 function timeKeyToMinutes(time) {
+  if (String(time).includes(":")) return timeLabelToMinutes(time);
   return Number(time.slice(0, 2)) * 60 + Number(time.slice(2));
 }
 
@@ -1942,6 +2004,10 @@ function renderModal() {
 }
 
 function bindEvents() {
+  document.querySelector("[data-simulation-time]")?.addEventListener("change", (event) => {
+    state.simulationTime = event.currentTarget.value;
+    render();
+  });
   document.querySelectorAll("[data-auth-route]").forEach((button) => {
     button.addEventListener("click", () => {
       state.route = button.dataset.authRoute;
@@ -2366,7 +2432,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=44").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=46").catch(() => {}));
 }
 
 async function boot() {

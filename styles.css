@@ -70,6 +70,39 @@ p {
   background: var(--bg);
 }
 
+.admin-time-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--hairline);
+  backdrop-filter: blur(14px);
+}
+
+.admin-time-bar label {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px 0 16px;
+  border-radius: 999px;
+  background: var(--gray);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.admin-time-bar select {
+  min-width: 92px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  text-align: right;
+}
+
 .auth-screen {
   display: grid;
   place-items: center;
