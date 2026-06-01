@@ -219,6 +219,10 @@ const state = {
   profilePage: "",
   authError: "",
   authPasswordVisible: false,
+  authDraft: {
+    nickname: "",
+    password: "",
+  },
   currentUser: null,
   isGuest: Boolean(localStorage.getItem(AUTH_GUEST_KEY)),
   notifications: {
@@ -604,7 +608,7 @@ function authField(name, placeholder, type = "text") {
   const inputType = isPassword && !state.authPasswordVisible ? "password" : "text";
   return `
     <label class="auth-field">
-      <input name="${name}" type="${inputType}" placeholder="${placeholder}" autocomplete="${isPassword ? "current-password" : "username"}" />
+      <input name="${name}" type="${inputType}" placeholder="${placeholder}" value="${escapeHtml(state.authDraft[name] || "")}" autocomplete="${isPassword ? "current-password" : "username"}" data-auth-draft="${name}" />
       ${isPassword ? `<button type="button" data-toggle-auth-password aria-label="비밀번호 보기">${icon("eye")}</button>` : ""}
     </label>
   `;
@@ -1671,6 +1675,7 @@ function bindEvents() {
     button.addEventListener("click", () => {
       state.route = button.dataset.authRoute;
       state.authError = "";
+      state.authDraft = { nickname: "", password: "" };
       render();
     });
   });
@@ -1685,6 +1690,11 @@ function bindEvents() {
   document.querySelector("[data-toggle-auth-password]")?.addEventListener("click", () => {
     state.authPasswordVisible = !state.authPasswordVisible;
     render();
+  });
+  document.querySelectorAll("[data-auth-draft]").forEach((field) => {
+    field.addEventListener("input", () => {
+      state.authDraft[field.dataset.authDraft] = field.value;
+    });
   });
   document.querySelector("[data-auth-college]")?.addEventListener("change", (event) => {
     state.profile.college = event.currentTarget.value;
@@ -1734,6 +1744,7 @@ function bindEvents() {
       render();
       return;
     }
+    state.authDraft = { nickname: "", password: "" };
     const user = {
       nickname,
       passwordHash: await passwordHash(password),
@@ -1766,6 +1777,7 @@ function bindEvents() {
       render();
       return;
     }
+    state.authDraft = { nickname: "", password: "" };
     const user = readUsers()[nickname] || {
       nickname,
       role: adminNicknames.includes(nickname) ? "admin" : "user",
@@ -2046,7 +2058,7 @@ function parseCollegeMajorCsv(text) {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=26").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=27").catch(() => {}));
 }
 
 async function boot() {
