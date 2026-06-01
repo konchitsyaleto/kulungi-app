@@ -1181,6 +1181,7 @@ async function loadPlanLayer(code, fallback, type) {
 }
 
 async function renderBlueprintSeatPlan(container, canvas, code) {
+  container.querySelector(".outlet-pin-layer")?.remove();
   const blueprint = await loadBlueprint(code);
   const timeKey = currentBlueprintTimeKey(blueprint.timeKeys);
   const scaleX = 200;
@@ -1195,8 +1196,9 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
     chairStatesBySeat.set(seat, { occupied, table });
     if (occupied) tableHasOccupied.set(table, true);
   });
-  const objects = [
-    ...blueprint.chairs.map((item) => {
+  const occupiedChairs = blueprint.chairs.filter((item) => chairStatesBySeat.get(String(item.seat).trim())?.occupied);
+  const occupiedTables = blueprint.tables.filter((item) => tableHasOccupied.get(String(item.table).trim()));
+  const chairs = blueprint.chairs.map((item) => {
       const seatState = chairStatesBySeat.get(String(item.seat).trim());
       const occupied = !!seatState?.occupied;
       const restricted = !occupied && !!tableHasOccupied.get(seatState?.table);
@@ -1209,26 +1211,26 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
         bottomY: numberValue(item.pos_y) * scaleY,
         sortY: numberValue(item.pos_y),
       };
-    }),
-    ...blueprint.tables.map((item) => ({
+    });
+  const tables = blueprint.tables.map((item) => ({
       kind: "table",
       src: `${item.type}.png`,
       stateSrc: `${item.type}-${tableHasOccupied.get(String(item.table).trim()) ? "02" : "00"}.png`,
       x: numberValue(item.pos_x) * scaleX,
       bottomY: numberValue(item.pos_y) * scaleY,
       sortY: numberValue(item.pos_y),
-    })),
-  ];
+    }));
   const outlets = state.showOutlets ? blueprint.outlets.map((item) => ({
     kind: "outlet",
     src: "E1.png",
-    stateSrc: "E1-00.png",
+    stateSrc: `E1-${blueprintOutletState(item, occupiedChairs, occupiedTables, timeKey)}.png`,
     x: numberValue(item.pos_x) * scaleX,
     bottomY: numberValue(item.pos_y) * scaleY - 150,
     sortY: Number.POSITIVE_INFINITY,
   })) : [];
   const availableSeats = [...chairStatesBySeat.values()].filter((item) => !item.occupied && !tableHasOccupied.get(item.table)).length;
-  const all = [...objects, ...outlets];
+  const canvasItems = [...chairs, ...tables];
+  const all = [...canvasItems, ...outlets];
   const images = await Promise.all(all.flatMap((item) => [loadImage(`./objects/${item.stateSrc}`), loadImage(`./objects/${item.src}`)]));
   all.forEach((item, index) => {
     item.stateImage = images[index * 2];
@@ -1254,16 +1256,16 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
-  all
+  canvasItems
     .sort((a, b) => {
-      if (a.kind === "outlet" && b.kind !== "outlet") return 1;
-      if (a.kind !== "outlet" && b.kind === "outlet") return -1;
+      if (a.kind !== b.kind) return a.kind === "chair" ? -1 : 1;
       return a.sortY - b.sortY;
     })
     .forEach((item) => {
       context.drawImage(item.stateImage, item.x + offsetX, item.y + offsetY);
       context.drawImage(item.image, item.x + offsetX, item.y + offsetY);
     });
+  if (outlets.length) renderOutletPins(container, outlets, width, height, offsetX, offsetY);
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
   if (loading) loading.textContent = availableSeats ? `자리가 ${availableSeats}석 남았어요` : "지금은 앉을 수 있는 자리가 없어요";
@@ -1315,6 +1317,39 @@ function normalizeBlueprintOccupancy(value) {
 
 function isBlueprintOccupied(value) {
   return normalizeBlueprintOccupancy(value) === "1";
+}
+
+function blueprintOutletState(outlet, occupiedChairs, occupiedTables, timeKey) {
+  const outletX = numberValue(outlet.pos_x);
+  const outletY = numberValue(outlet.pos_y);
+  const nearOccupiedTable = occupiedTables.some((table) => Math.abs(numberValue(table.pos_x) - outletX) <= 0.6 && Math.abs(numberValue(table.pos_y) - outletY) <= 0.6);
+  const nearOccupiedChair = occupiedChairs.some((chair) => Math.abs(numberValue(chair.pos_x) - outletX) <= 1.1 && Math.abs(numberValue(chair.pos_y) - outletY) <= 1.1);
+  if (!nearOccupiedTable && !nearOccupiedChair) return "00";
+  return stablePercent(`${outlet.Elec || ""}-${timeKey}`) < 70 ? "02" : "01";
+}
+
+function stablePercent(seed) {
+  let hash = 0;
+  [...String(seed)].forEach((char) => {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  });
+  return hash % 100;
+}
+
+function renderOutletPins(container, outlets, width, height, offsetX, offsetY) {
+  const layer = document.createElement("div");
+  layer.className = "outlet-pin-layer";
+  outlets.forEach((item) => {
+    const pin = document.createElement("span");
+    pin.className = "outlet-pin";
+    pin.style.left = `${((item.x + offsetX) / width) * 100}%`;
+    pin.style.top = `${((item.y + offsetY) / height) * 100}%`;
+    pin.style.width = `${(item.width / width) * 100}%`;
+    pin.style.height = `${(item.height / height) * 100}%`;
+    pin.innerHTML = `<img src="./objects/${item.stateSrc}" alt="" /><img src="./objects/${item.src}" alt="" />`;
+    layer.appendChild(pin);
+  });
+  container.appendChild(layer);
 }
 
 function currentBlueprintTimeKey(timeKeys) {
@@ -2462,7 +2497,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=47").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=48").catch(() => {}));
 }
 
 async function boot() {

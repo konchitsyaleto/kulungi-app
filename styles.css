@@ -877,6 +877,37 @@ p {
   object-fit: contain;
 }
 
+.outlet-pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.outlet-pin {
+  position: absolute;
+  display: block;
+  animation: outletPinDrop 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: 50% 100%;
+}
+
+.outlet-pin img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes outletPinDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .seat-plan-loading {
   position: absolute;
   left: 12px;
