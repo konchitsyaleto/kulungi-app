@@ -220,6 +220,7 @@ const state = {
   activeMetric: null,
   trendOpen: false,
   simulationTime: "",
+  showOutlets: false,
   profilePage: "",
   authError: "",
   authPasswordVisible: false,
@@ -1095,7 +1096,14 @@ function clamp(value, min, max) {
 function renderSeatMap(lounge) {
   return `
     <section class="panel">
-      <h2>좌석도</h2>
+      <div class="seat-map-title">
+        <h2>좌석도</h2>
+        <label class="outlet-switch">
+          <span>콘센트 보기</span>
+          <input type="checkbox" data-toggle-outlets ${state.showOutlets ? "checked" : ""} />
+          <i></i>
+        </label>
+      </div>
       <div class="seat-plan" data-seating-plan="${lounge.code}" data-crowd="${lounge.currentCrowd}" data-open-seat-plan>
         <canvas aria-label="${lounge.name} 좌석도"></canvas>
         <div class="seat-plan-loading">좌석도를 불러오는 중이에요</div>
@@ -1154,7 +1162,7 @@ async function renderImageSeatPlan(container, canvas) {
   const outletStates = outlets.map((outlet, index) => ({ ...outlet, state: simulation?.outlets[index] || aggregateState(nearestBoxes(outlet, chairStates, 90)) }));
   if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
   if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
-  if (outletsImage) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
+  if (outletsImage && state.showOutlets) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
   if (loading) loading.textContent = `${chairStates.length}개 좌석을 감지했어요`;
@@ -1177,15 +1185,26 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
   const timeKey = currentBlueprintTimeKey(blueprint.timeKeys);
   const scaleX = 200;
   const scaleY = 150;
+  const chairStatesBySeat = new Map();
+  const tableHasOccupied = new Map();
+  blueprint.chairs.forEach((item) => {
+    const seat = String(item.seat).trim();
+    const table = String(item.table).trim();
+    const occupancy = blueprint.occupancyBySeat.get(seat);
+    const occupied = isBlueprintOccupied(occupancy?.[timeKey]);
+    chairStatesBySeat.set(seat, { occupied, table });
+    if (occupied) tableHasOccupied.set(table, true);
+  });
   const objects = [
     ...blueprint.chairs.map((item) => {
-      const occupancy = blueprint.occupancyBySeat.get(String(item.seat).trim());
-      const occupied = normalizeBlueprintOccupancy(occupancy?.[timeKey]) === "1";
+      const seatState = chairStatesBySeat.get(String(item.seat).trim());
+      const occupied = !!seatState?.occupied;
+      const restricted = !occupied && !!tableHasOccupied.get(seatState?.table);
       const assetName = `${item.type}_${String(item.direction).padStart(2, "0")}`;
       return {
         kind: "chair",
         src: `${assetName}.png`,
-        stateSrc: `${assetName}-${occupied ? "02" : "00"}.png`,
+        stateSrc: `${assetName}-${occupied ? "02" : restricted ? "01" : "00"}.png`,
         x: numberValue(item.pos_x) * scaleX,
         bottomY: numberValue(item.pos_y) * scaleY,
         sortY: numberValue(item.pos_y),
@@ -1194,20 +1213,21 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
     ...blueprint.tables.map((item) => ({
       kind: "table",
       src: `${item.type}.png`,
-      stateSrc: `${item.type}-00.png`,
+      stateSrc: `${item.type}-${tableHasOccupied.get(String(item.table).trim()) ? "02" : "00"}.png`,
       x: numberValue(item.pos_x) * scaleX,
       bottomY: numberValue(item.pos_y) * scaleY,
       sortY: numberValue(item.pos_y),
     })),
   ];
-  const outlets = blueprint.outlets.map((item) => ({
+  const outlets = state.showOutlets ? blueprint.outlets.map((item) => ({
     kind: "outlet",
     src: "E1.png",
     stateSrc: "E1-00.png",
     x: numberValue(item.pos_x) * scaleX,
     bottomY: numberValue(item.pos_y) * scaleY - 150,
     sortY: Number.POSITIVE_INFINITY,
-  }));
+  })) : [];
+  const availableSeats = [...chairStatesBySeat.values()].filter((item) => !item.occupied && !tableHasOccupied.get(item.table)).length;
   const all = [...objects, ...outlets];
   const images = await Promise.all(all.flatMap((item) => [loadImage(`./objects/${item.stateSrc}`), loadImage(`./objects/${item.src}`)]));
   all.forEach((item, index) => {
@@ -1246,7 +1266,7 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
     });
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
-  if (loading) loading.textContent = `${blueprint.chairs.length}개 좌석을 표시했어요`;
+  if (loading) loading.textContent = availableSeats ? `자리가 ${availableSeats}석 남았어요` : "지금은 앉을 수 있는 자리가 없어요";
 }
 
 async function loadBlueprint(code) {
@@ -1287,8 +1307,14 @@ function parseBlueprintCsv(text, keepRow = (row) => (row.type || row.Elec) && ro
 
 function normalizeBlueprintOccupancy(value) {
   const text = String(value || "").trim();
-  if (!text || /^\(.+\)$/.test(text)) return "-1";
+  if (!text) return "";
+  const negativeMatch = text.match(/^\((.+)\)$/);
+  if (negativeMatch) return `-${negativeMatch[1].trim()}`;
   return text;
+}
+
+function isBlueprintOccupied(value) {
+  return normalizeBlueprintOccupancy(value) === "1";
 }
 
 function currentBlueprintTimeKey(timeKeys) {
@@ -2008,6 +2034,10 @@ function bindEvents() {
     state.simulationTime = event.currentTarget.value;
     render();
   });
+  document.querySelector("[data-toggle-outlets]")?.addEventListener("change", (event) => {
+    state.showOutlets = event.currentTarget.checked;
+    render();
+  });
   document.querySelectorAll("[data-auth-route]").forEach((button) => {
     button.addEventListener("click", () => {
       state.route = button.dataset.authRoute;
@@ -2432,7 +2462,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=46").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=47").catch(() => {}));
 }
 
 async function boot() {

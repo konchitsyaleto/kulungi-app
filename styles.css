@@ -103,6 +103,59 @@ p {
   text-align: right;
 }
 
+.seat-map-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.outlet-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--soft-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.outlet-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.outlet-switch i {
+  width: 36px;
+  height: 20px;
+  position: relative;
+  border-radius: 999px;
+  background: #DDE2E7;
+  transition: background 0.18s ease;
+}
+
+.outlet-switch i::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 4px rgba(25, 28, 31, 0.2);
+  transition: transform 0.18s ease;
+}
+
+.outlet-switch input:checked + i {
+  background: var(--accent);
+}
+
+.outlet-switch input:checked + i::after {
+  transform: translateX(16px);
+}
+
 .auth-screen {
   display: grid;
   place-items: center;
