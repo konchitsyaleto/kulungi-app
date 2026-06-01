@@ -2413,25 +2413,25 @@ body {
 }
 
 .auth-primary {
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
   padding: 0 !important;
   font-size: 17px !important;
-  line-height: 34px !important;
+  line-height: 38px !important;
   border-radius: 999px !important;
 }
 
 .auth-field {
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
 }
 
 .auth-field input,
 .auth-field select {
-  height: 34px !important;
-  line-height: 34px !important;
+  height: 38px !important;
+  line-height: 38px !important;
 }
 
 .auth-form {
