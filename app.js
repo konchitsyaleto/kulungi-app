@@ -1220,14 +1220,14 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
       bottomY: numberValue(item.pos_y) * scaleY,
       sortY: numberValue(item.pos_y),
     }));
-  const outlets = state.showOutlets ? blueprint.outlets.map((item) => ({
+  const outlets = blueprint.outlets.map((item) => ({
     kind: "outlet",
     src: "E1.png",
     stateSrc: `E1-${blueprintOutletState(item, occupiedChairs, occupiedTables, timeKey)}.png`,
     x: numberValue(item.pos_x) * scaleX,
     bottomY: numberValue(item.pos_y) * scaleY - 150,
     sortY: Number.POSITIVE_INFINITY,
-  })) : [];
+  }));
   const availableSeats = [...chairStatesBySeat.values()].filter((item) => !item.occupied && !tableHasOccupied.get(item.table)).length;
   const canvasItems = [...chairs, ...tables];
   const all = [...canvasItems, ...outlets];
@@ -1239,14 +1239,11 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
     item.height = Math.max(item.stateImage.height, item.image.height);
     item.y = item.bottomY - item.height;
   });
-  const minX = Math.min(...all.map((item) => item.x), 0);
-  const minY = Math.min(...all.map((item) => item.y), 0);
-  const maxX = Math.max(...all.map((item) => item.x + item.width), 1);
-  const maxY = Math.max(...all.map((item) => item.bottomY), 1);
-  const offsetX = -minX;
-  const offsetY = -minY;
-  const width = Math.ceil(maxX - minX);
-  const height = Math.ceil(maxY - minY);
+  const bounds = blueprintCanvasBounds(all);
+  const offsetX = -bounds.minX;
+  const offsetY = -bounds.minY;
+  const width = Math.ceil(bounds.width);
+  const height = Math.ceil(bounds.height);
   const ratio = window.devicePixelRatio || 1;
   canvas.width = width * ratio;
   canvas.height = height * ratio;
@@ -1266,7 +1263,7 @@ async function renderBlueprintSeatPlan(container, canvas, code) {
       context.drawImage(item.stateImage, item.x + offsetX, item.y + offsetY);
       context.drawImage(item.image, item.x + offsetX, item.y + offsetY);
     });
-  if (outlets.length) renderOutletPins(container, outlets, width, height, offsetX, offsetY);
+  if (state.showOutlets) renderOutletPins(container, outlets, width, height, offsetX, offsetY);
   container.classList.add("ready");
   const loading = container.querySelector(".seat-plan-loading");
   if (loading) loading.textContent = availableSeats ? `자리가 ${availableSeats}석 남았어요` : "지금은 앉을 수 있는 자리가 없어요";
@@ -1318,6 +1315,33 @@ function normalizeBlueprintOccupancy(value) {
 
 function isBlueprintOccupied(value) {
   return normalizeBlueprintOccupancy(value) === "1";
+}
+
+function blueprintCanvasBounds(items) {
+  const aspect = 4 / 3;
+  let minX = Math.min(...items.map((item) => item.x), 0);
+  let minY = Math.min(...items.map((item) => item.y), 0);
+  let maxX = Math.max(...items.map((item) => item.x + item.width), 1);
+  let maxY = Math.max(...items.map((item) => item.bottomY), 1);
+  const contentWidth = maxX - minX;
+  const contentHeight = maxY - minY;
+  if (contentWidth / contentHeight > aspect) {
+    const targetHeight = contentWidth / aspect;
+    const extra = targetHeight - contentHeight;
+    minY -= extra / 2;
+    maxY += extra / 2;
+  } else {
+    const targetWidth = contentHeight * aspect;
+    const extra = targetWidth - contentWidth;
+    minX -= extra / 2;
+    maxX += extra / 2;
+  }
+  return {
+    minX,
+    minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
 }
 
 function blueprintOutletState(outlet, occupiedChairs, occupiedTables, timeKey) {
@@ -2498,7 +2522,7 @@ async function loadSeatSimulationData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=49").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=50").catch(() => {}));
 }
 
 async function boot() {
