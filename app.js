@@ -1078,7 +1078,7 @@ function buildLounges(rows) {
         { key: "sit", label: "자리 유무", value: sitMetric.value, tone: sitMetric.tone, detail: "" },
         { key: "charge", label: "콘센트", value: chargeMetric.value, tone: chargeMetric.tone, detail: "" },
       ],
-      details: buildDetails(row, infra, table, brightness),
+      details: buildDetails(row, infra, table),
     };
     return lounge;
   });
@@ -1200,16 +1200,23 @@ function buildTags(row, infra, table) {
   return [...new Set(tags)];
 }
 
-function buildDetails(row, infra, table, brightness) {
+function buildDetails(row, infra, table) {
   return [
     ["캠퍼스/건물", `${row.campus || "캠퍼스 미정"} · ${row.building || "건물 미정"}`],
     ["층", row.lounge_floor || "층수 미정"],
     ["라운지 형태", row.default_type || "오픈형"],
     ["좌석 및 테이블", table.length ? table.join(", ") : fallbackTable(row.default_type)],
     ["시설", infra.length ? infra.join(", ") : "시설 정보 없음"],
+    ["조도", lightingLabel(row)],
     ["평균 체류시간", `${numberValue(row.usage_time, 0)}분`],
     ["운영 시간", `${row.open || "08:30"}-${row.close || "22:30"} · ${openDaysText(row)}`],
   ];
+}
+
+function lightingLabel(row) {
+  if (flagValue(row?.bright)) return "밝음";
+  if (flagValue(row?.dark)) return "어두움";
+  return "보통";
 }
 
 function fallbackTable(type) {
@@ -1233,14 +1240,6 @@ function openDaysText(row) {
   if (labels.length === 7) return "매일 운영";
   if (!labels.length) return hasDayColumns ? "운영일 미정" : "운영일 정보 없음";
   return `${labels.join(", ")} 운영`;
-}
-
-function brightnessLabel(value) {
-  if (value >= 80) return "매우 밝음";
-  if (value >= 60) return "밝음";
-  if (value >= 40) return "보통";
-  if (value >= 20) return "어두움";
-  return "매우 어두움";
 }
 
 function crowdMetricFromValue(value) {
@@ -1501,11 +1500,13 @@ async function renderImageSeatPlan(container, canvas) {
   const crowd = numberValue(container.dataset.crowd, 50);
   const lounge = getSelectedLounge();
   const fallback = seatingFallbackPrefix(lounge);
-  const [outletsImage, tablesImage, chairsImage] = await Promise.all([
-    loadPlanLayer(code, fallback, "E"),
+  const [tablesImage, chairsImage] = await Promise.all([
     loadPlanLayer(code, fallback, "T"),
     loadPlanLayer(code, fallback, "C"),
   ]);
+  const hasCodeSpecificPlan = [tablesImage, chairsImage].some((image) => isCodeSpecificPlanImage(image, code));
+  const usesDefaultOpenPlan = [tablesImage, chairsImage].some((image) => isDefaultOpenPlanImage(image));
+  const outletsImage = await loadOutletPlanLayer(code, hasCodeSpecificPlan, usesDefaultOpenPlan);
   const baseImage = chairsImage || tablesImage || outletsImage;
   if (!baseImage) throw new Error("no seating plan layers");
   const width = baseImage.naturalWidth || baseImage.width;
@@ -1680,9 +1681,7 @@ function inverseNormal(p) {
 }
 
 async function loadPlanLayer(code, fallback, type) {
-  const candidates = type === "E"
-    ? [`./seating-plans/${code}-${type}.png`]
-    : [`./seating-plans/${code}-${type}.png`, `./seating-plans/${fallback}-${type}.png`, `./seating-plans/Default-open-${type}.png`];
+  const candidates = [`./seating-plans/${code}-${type}.png`, `./seating-plans/${fallback}-${type}.png`, `./seating-plans/Default-open-${type}.png`];
   for (const src of candidates) {
     try {
       return await loadImage(src);
@@ -1691,6 +1690,29 @@ async function loadPlanLayer(code, fallback, type) {
     }
   }
   return null;
+}
+
+async function loadOutletPlanLayer(code, hasCodeSpecificPlan, usesDefaultOpenPlan) {
+  const candidates = [`./seating-plans/${code}-E.png`];
+  if (!hasCodeSpecificPlan && usesDefaultOpenPlan) candidates.push("./seating-plans/Default-open-E.png");
+  for (const src of candidates) {
+    try {
+      return await loadImage(src);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+function isCodeSpecificPlanImage(image, code) {
+  if (!image || !code) return false;
+  return decodeURIComponent(image.src || "").includes(`/seating-plans/${code}-`);
+}
+
+function isDefaultOpenPlanImage(image) {
+  if (!image) return false;
+  return decodeURIComponent(image.src || "").includes("/seating-plans/Default-open-");
 }
 
 async function renderBlueprintSeatPlan(container, canvas, code) {
@@ -3205,7 +3227,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=80").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=82").catch(() => {}));
 }
 
 async function boot() {
