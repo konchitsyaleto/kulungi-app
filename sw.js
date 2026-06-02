@@ -1,4 +1,4 @@
-const CACHE_NAME = "kulungi-prototype-v82";
+const CACHE_NAME = "kulungi-prototype-v83";
 const ASSETS = [
   "./",
   "./index.html",

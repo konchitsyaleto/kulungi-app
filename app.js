@@ -1030,7 +1030,7 @@ function buildLounges(rows) {
     const infra = splitList(row.infrastructure);
     const table = splitList(row.default_table);
     const crowdByTime = buildCrowdByTime(row);
-    const dayCrowd = dayKeys().map(([, label]) => ({ day: label, value: clamp(numberValue(row.default_populous, 0.5) * 100 + (index % 5) * 3, 0, 100) }));
+    const dayCrowd = buildDayCrowd(row);
     const currentCrowd = currentCrowdValue(crowdByTime, numberValue(row.default_populous, 0.5) * 100);
     const crowdMetric = crowdMetricFromScore(crowdScoreFromValue(currentCrowd));
     const noiseValue = currentNoiseValue(row);
@@ -1160,6 +1160,24 @@ function buildCrowdByTime(row) {
   return source
     .filter(([time]) => isOpenAt(row, time))
     .map(([time]) => ({ time: normalizedPopulousKey(time), value: crowdStaticValue(row, time) }));
+}
+
+function buildDayCrowd(row) {
+  const base = clamp(numberValue(row.default_populous, 0.5) * 100, 25, 100);
+  const weekdayMultipliers = {
+    월: 0.98,
+    화: 1,
+    수: 0.96,
+    목: 0.94,
+    금: 0.5,
+    토: 0.25,
+    일: 0.23,
+  };
+  return dayKeys().map(([, label]) => {
+    const noise = (stableRandom(`${row.lounge_code || row.lounge_name}-${label}-day-crowd`) - 0.5) * 12;
+    const value = clamp(base * (weekdayMultipliers[label] || 1) + noise, 4, 100);
+    return { day: label, value };
+  });
 }
 
 function crowdStaticValue(row, time) {
@@ -3227,7 +3245,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=82").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=83").catch(() => {}));
 }
 
 async function boot() {
