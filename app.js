@@ -13,6 +13,22 @@ const statusText = {
   seats: "앉을 자리 있어요",
 };
 
+const atmosphereStatusMap = {
+  "bad-bad": { text: "혼잡하고 시끄러워요", tone: "bad" },
+  "bad-warn": { text: "혼잡해요", tone: "bad" },
+  "bad-good": { text: "조용하지만 혼잡해요", tone: "warn" },
+  "warn-bad": { text: "시끄러워요", tone: "bad" },
+  "warn-warn": { text: "보통이에요", tone: "warn" },
+  "warn-good": { text: "조용해요", tone: "good" },
+  "good-bad": { text: "여유롭지만 시끄러워요", tone: "warn" },
+  "good-warn": { text: "여유롭고 대화하기 좋아요", tone: "good" },
+  "good-good": { text: "여유롭고 조용해요", tone: "good" },
+};
+
+function atmosphereStatus(crowdMetric, noiseMetric) {
+  return atmosphereStatusMap[`${crowdMetric.tone}-${noiseMetric.tone}`] || atmosphereStatusMap["warn-warn"];
+}
+
 const expandedMetricText = {
   crowd: ["여유로워요", "보통이에요", "혼잡해요"],
   noise: ["조용해요", "보통이에요", "시끄러워요"],
@@ -919,7 +935,7 @@ function renderLoungeCard(lounge) {
             </div>
           </div>
           <p>${lounge.building} ${lounge.floor} · ${lounge.distance}</p>
-          <strong class="status mark-${lounge.statusTone}">${statusText[lounge.status]}</strong>
+          <strong class="status mark-${lounge.statusTone}">${statusText[lounge.status] || lounge.status}</strong>
           <div class="tags scroll-tags">${lounge.tags.map((tag) => `<span>${tag}</span>`).join("")}</div>
         </div>
       </div>
@@ -998,6 +1014,7 @@ function buildLounges(rows) {
     const crowdMetric = crowdMetricFromScore(crowdScoreFromValue(currentCrowd));
     const noiseValue = currentNoiseValue(row);
     const noiseMetric = noiseMetricFromValue(noiseValue);
+    const status = atmosphereStatus(crowdMetric, noiseMetric);
     const sitMetric = seatMetricFromAvailability(true, numberValue(row.usage_time, 60));
     const chargeMetric = chargeMetricFromAvailability(flagValue(row.charge), flagValue(row.charge) ? 1 : 0, 1);
     const brightness = flagValue(row.bright) ? 80 : flagValue(row.dark) ? 25 : 55;
@@ -1019,8 +1036,8 @@ function buildLounges(rows) {
       recommended: crowdMetric.tone !== "bad",
       recommendation: 0,
       heroTone: "dark",
-      status: crowdMetric.tone === "good" ? "calm" : crowdMetric.tone === "warn" ? "normal" : "busy",
-      statusTone: crowdMetric.tone,
+      status: status.text,
+      statusTone: status.tone,
       tags: buildTags(row, infra, table),
       thumbnail: photo,
       image: photo,
@@ -1247,12 +1264,13 @@ function simulateLounge(lounge) {
   const sitMetric = seatMetricFromAvailability(seatAvailability.availableSeats > 0, numberValue(lounge.raw?.usage_time, 60));
   const chargeMetric = chargeMetricFromAvailability(lounge.chargeAvailable, seatAvailability.availableOutlets, seatAvailability.totalOutlets);
   const noiseMetric = noiseMetricFromValue(currentNoiseValue(lounge.raw || {}, activeMinutes));
+  const status = atmosphereStatus(crowdMetric, noiseMetric);
   return {
     ...lounge,
     currentCrowd,
     recommended: canSitOnArrival(lounge),
-    status: currentCrowdNormalized < 0.4 ? "calm" : currentCrowdNormalized < 0.75 ? "normal" : "busy",
-    statusTone: crowdMetric.tone,
+    status: status.text,
+    statusTone: status.tone,
     metrics: [
       { key: "crowd", label: "혼잡도", value: crowdMetric.value, tone: crowdMetric.tone, detail: "" },
       { key: "noise", label: "소음도", value: noiseMetric.value, tone: noiseMetric.tone, detail: "" },
@@ -3152,7 +3170,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=76").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=77").catch(() => {}));
 }
 
 async function boot() {
