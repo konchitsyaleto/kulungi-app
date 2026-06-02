@@ -306,6 +306,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 const adminNicknames = ["테스트2"];
+const allowedNicknames = ["비플렉스", "강소은", "다인", "주리", "홈지기", "고대야호", "테스트2"];
 let collegeMajorData = [];
 let seatSimulationData = null;
 let staticSeatOccupancyData = null;
@@ -787,7 +788,11 @@ function render() {
 }
 
 function accessBlocked() {
-  return false;
+  return !["welcome", "guestConfirm", "signup", "login", "restricted"].includes(state.route) && !canAccessProject();
+}
+
+function canAccessProject() {
+  return allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser);
 }
 
 function renderRestricted() {
@@ -795,8 +800,7 @@ function renderRestricted() {
     <section class="screen auth-screen welcome-auth">
       <div class="auth-center">
         <div class="auth-logo">kulungi</div>
-        <h1>쿠룽지를<br />바로 이용할 수 있어요.</h1>
-        <p class="restricted-copy">계정을 만들거나 로그인해서 설정을 저장해보세요.</p>
+        <h1>꿀렁이는 돌아온다...</h1>
         <div class="auth-actions">
           <button class="auth-primary" data-auth-route="login">로그인</button>
           <button class="auth-login-link" data-auth-route="signup">쿠룽지 친구 되기</button>
@@ -2882,7 +2886,7 @@ function bindEvents() {
     localStorage.removeItem(AUTH_GUEST_KEY);
     state.isGuest = true;
     state.currentUser = null;
-    state.route = "home";
+    state.route = "restricted";
     render();
   });
   document.querySelector("[data-install-app]")?.addEventListener("click", async () => {
@@ -3394,7 +3398,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=95").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=96").catch(() => {}));
 }
 
 window.addEventListener("beforeinstallprompt", (event) => {
