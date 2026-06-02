@@ -1485,7 +1485,7 @@ function renderSeatMap(lounge) {
 
 function initSeatingPlans() {
   document.querySelectorAll("[data-seating-plan]").forEach((container) => {
-    const canvas = container.querySelector("canvas");
+    const canvas = container.querySelector("canvas:not(.outlet-canvas)");
     if (!canvas || canvas.dataset.ready) return;
     canvas.dataset.ready = "true";
     renderImageSeatPlan(container, canvas).catch(() => {
@@ -1526,9 +1526,10 @@ async function renderImageSeatPlan(container, canvas) {
   const chairStates = simulation.chairs;
   const tableStates = simulation.tables;
   const outletStates = simulation.outlets;
-  if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
   if (chairsImage) tintLayer(context, chairsImage, chairStates, width, height, "chair");
-  if (outletsImage && state.showOutlets) tintLayer(context, outletsImage, outletStates, width, height, "outlet");
+  if (tablesImage) tintLayer(context, tablesImage, tableStates, width, height, "table");
+  container.querySelector(".outlet-canvas")?.remove();
+  if (outletsImage && state.showOutlets) renderOutletCanvas(container, outletsImage, outletStates, width, height, ratio);
   const cacheKey = seatAvailabilityKey(code, activeSimulationMinutes());
   const previousAvailability = seatAvailabilityCache[cacheKey];
   const nextAvailability = {
@@ -1545,6 +1546,19 @@ async function renderImageSeatPlan(container, canvas) {
     const lounge = getSelectedLounge();
     updateDetailSeatMetric(lounge, nextAvailability);
   }
+}
+
+function renderOutletCanvas(container, image, outletStates, width, height, ratio) {
+  const outletCanvas = document.createElement("canvas");
+  outletCanvas.className = "outlet-canvas";
+  outletCanvas.width = width * ratio;
+  outletCanvas.height = height * ratio;
+  outletCanvas.style.aspectRatio = `${width} / ${height}`;
+  const outletContext = outletCanvas.getContext("2d");
+  outletContext.scale(ratio, ratio);
+  outletContext.clearRect(0, 0, width, height);
+  tintLayer(outletContext, image, outletStates, width, height, "outlet");
+  container.appendChild(outletCanvas);
 }
 
 function availabilityChanged(previous, next) {
@@ -2024,19 +2038,19 @@ function tintLayer(targetContext, image, boxes, width, height, layerType) {
   sourceContext.putImageData(imageData, 0, 0);
   targetContext.save();
   targetContext.shadowColor = {
-    chair: "rgba(12, 12, 12, 0.18)",
-    table: "rgba(12, 12, 12, 0.26)",
-    outlet: "rgba(134, 38, 51, 0.34)",
+    chair: "rgba(12, 12, 12, 0.22)",
+    table: "rgba(12, 12, 12, 0.32)",
+    outlet: "rgba(134, 38, 51, 0.44)",
   }[layerType] || "rgba(12, 12, 12, 0.22)";
   targetContext.shadowBlur = {
-    chair: 4,
-    table: 7,
-    outlet: 9,
+    chair: 8,
+    table: 13,
+    outlet: 18,
   }[layerType] || 6;
   targetContext.shadowOffsetY = {
-    chair: 1,
-    table: 2,
-    outlet: 2,
+    chair: 2,
+    table: 4,
+    outlet: 4,
   }[layerType] || 2;
   targetContext.drawImage(source, 0, 0);
   targetContext.restore();
@@ -3191,7 +3205,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=79").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=80").catch(() => {}));
 }
 
 async function boot() {
