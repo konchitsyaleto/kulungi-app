@@ -470,34 +470,45 @@ async function restoreSupabaseSession() {
   const user = data.session?.user;
   if (!user) return;
   await loadSupabaseUserData(user);
+  await syncSupabaseUserData().catch(() => persistLocalUserSnapshot());
   localStorage.removeItem(AUTH_GUEST_KEY);
   state.route = "home";
 }
 
 async function loadSupabaseUserData(user) {
-  const nickname = user.user_metadata?.nickname || state.currentUser || "쿠룽지 친구";
+  const metadata = user.user_metadata || {};
+  const metadataProfile = metadata.profile || {};
+  const nickname = metadata.nickname || state.currentUser || "쿠룽지 친구";
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
   const { data: favorites } = await supabase.from("favorites").select("lounge_id").eq("user_id", user.id);
   const { data: presets } = await supabase.from("presets").select("name, config").eq("user_id", user.id).order("created_at", { ascending: true });
+  const tableFavorites = favorites?.map((item) => item.lounge_id).filter(Boolean) || [];
+  const metadataFavorites = Array.isArray(metadata.favorites) ? metadata.favorites.filter(Boolean) : [];
+  const tablePresets = presets?.map((item) => ({ name: item.name, ...item.config })) || [];
+  const metadataPresets = Array.isArray(metadata.presets) ? metadata.presets : [];
+  const localFavorites = state.currentUser === nickname ? [...state.favorites].filter(Boolean) : [];
+  const localPresets = state.currentUser === nickname ? state.presets : [];
   state.currentUser = nickname;
   state.isGuest = false;
   state.profile = {
     ...state.profile,
     name: profile?.nickname || nickname,
-    college: profile?.college || state.profile.college,
-    department: profile?.department || state.profile.department,
-    photo: profile?.photo || "",
+    college: profile?.college || metadataProfile.college || state.profile.college,
+    department: profile?.department || metadataProfile.department || state.profile.department,
+    photo: profile?.photo || metadataProfile.photo || "",
     role: adminNicknames.includes(nickname) ? "admin" : "user",
     saved: false,
   };
-  state.favorites = new Set(favorites?.length ? favorites.map((item) => item.lounge_id) : defaultFavorites);
-  state.presets = presets?.length ? presets.map((item) => ({ name: item.name, ...item.config })) : [...defaultPresets];
+  state.favorites = new Set(tableFavorites.length ? tableFavorites : metadataFavorites.length ? metadataFavorites : localFavorites.length ? localFavorites : defaultFavorites);
+  state.presets = tablePresets.length ? tablePresets : metadataPresets.length ? metadataPresets : localPresets.length ? localPresets : [...defaultPresets];
+  persistLocalUserSnapshot();
 }
 
 async function syncSupabaseUserData() {
   const { data } = await supabase.auth.getUser();
   const user = data.user;
   if (!user) return;
+  await supabase.auth.updateUser({ data: accountMetadataPayload() });
   await supabase.from("profiles").upsert({
     id: user.id,
     nickname: state.profile.name,
@@ -514,6 +525,20 @@ async function syncSupabaseUserData() {
   if (state.presets.length) {
     await supabase.from("presets").insert(state.presets.map((preset) => ({ user_id: user.id, name: preset.name, config: preset })));
   }
+}
+
+function accountMetadataPayload() {
+  return {
+    nickname: state.profile.name || state.currentUser || "",
+    profile: {
+      college: state.profile.college,
+      department: state.profile.department,
+      photo: state.profile.photo || "",
+      role: state.profile.role || "user",
+    },
+    favorites: [...state.favorites],
+    presets: state.presets,
+  };
 }
 
 async function resetAuthAttempt() {
@@ -2942,7 +2967,12 @@ function bindEvents() {
         email: nicknameToAuthEmail(nickname),
         password,
         options: {
-          data: { nickname },
+          data: {
+            nickname,
+            profile: { college, department, photo: state.profile.photo || "", role: adminNicknames.includes(nickname) ? "admin" : "user" },
+            favorites: [...state.favorites],
+            presets: state.presets,
+          },
         },
       });
       if (error) {
@@ -3008,7 +3038,14 @@ function bindEvents() {
           const recovered = await supabase.auth.signUp({
             email: nicknameToAuthEmail(nickname),
             password,
-            options: { data: { nickname } },
+            options: {
+              data: {
+                nickname,
+                profile: localUser.profile || {},
+                favorites: localUser.favorites || [],
+                presets: localUser.presets || [],
+              },
+            },
           });
           if (recovered.error || !recovered.data.session) {
             await resetAuthAttempt();
@@ -3358,7 +3395,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=87").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=89").catch(() => {}));
 }
 
 window.addEventListener("beforeinstallprompt", (event) => {
