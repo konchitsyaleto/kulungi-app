@@ -51,7 +51,7 @@ button {
   color: inherit;
   background: transparent;
   text-align: inherit;
-  transition: transform 0.22s var(--motion-soft), opacity 0.22s var(--motion-soft), box-shadow 0.22s var(--motion-soft), background 0.22s var(--motion-soft);
+  transition: transform 0.36s var(--motion-soft), opacity 0.36s var(--motion-soft), box-shadow 0.36s var(--motion-soft), background 0.36s var(--motion-soft);
 }
 
 svg {
@@ -362,19 +362,6 @@ p {
   min-height: 100dvh;
   position: relative;
   overflow-x: hidden;
-  transform-origin: 50% 22%;
-  animation: screenSoftIn 0.28s var(--motion-pop) both;
-}
-
-@keyframes screenSoftIn {
-  from {
-    opacity: 0;
-    transform: scale(0.985) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }
 
 .with-tabbar {
@@ -437,7 +424,7 @@ p {
   border-radius: 0;
   width: 100%;
   transform-origin: 50% 50%;
-  transition: transform 0.24s var(--motion-soft), box-shadow 0.24s var(--motion-soft), border-color 0.24s var(--motion-soft);
+  transition: transform 0.38s var(--motion-soft), box-shadow 0.38s var(--motion-soft), border-color 0.38s var(--motion-soft);
 }
 
 .lounge-card:active,
@@ -681,7 +668,7 @@ p {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  transition: all 0.22s ease;
+  transition: transform 0.38s var(--motion-soft), background 0.38s var(--motion-soft), box-shadow 0.38s var(--motion-soft), min-height 0.42s var(--motion-pop), padding 0.42s var(--motion-pop);
   color: var(--ink);
   overflow: hidden;
   border-radius: 0;
@@ -955,7 +942,7 @@ p {
   overflow: hidden;
   cursor: zoom-in;
   transform-origin: 50% 50%;
-  transition: transform 0.28s var(--motion-pop), box-shadow 0.28s var(--motion-soft), border-color 0.28s var(--motion-soft);
+  transition: transform 0.44s var(--motion-pop), box-shadow 0.44s var(--motion-soft), border-color 0.44s var(--motion-soft);
 }
 
 .seat-plan:active {
@@ -1071,7 +1058,7 @@ p {
   overflow: auto;
   cursor: default;
   touch-action: pan-x pan-y pinch-zoom;
-  animation: seatPlanZoomIn 0.32s var(--motion-pop) both;
+  animation: seatPlanZoomIn 0.48s var(--motion-pop) both;
 }
 
 @keyframes seatPlanZoomIn {
@@ -1427,7 +1414,7 @@ p {
   place-items: center;
   padding: 24px;
   background: rgba(12, 12, 12, 0.22);
-  animation: backdropFadeIn 0.22s ease both;
+  animation: backdropFadeIn 0.38s ease both;
 }
 
 .modal-card {
@@ -1438,7 +1425,7 @@ p {
   border-radius: 0;
   background: var(--bg);
   transform-origin: 50% 46%;
-  animation: modalScaleIn 0.3s var(--motion-pop) both;
+  animation: modalScaleIn 0.46s var(--motion-pop) both;
 }
 
 @keyframes backdropFadeIn {
