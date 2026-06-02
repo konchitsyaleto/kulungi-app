@@ -17,6 +17,8 @@
   --white: #ffffff;
   --hairline: #EEF0F3;
   --soft-text: #6E7378;
+  --motion-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-pop: cubic-bezier(0.16, 1, 0.3, 1);
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -49,6 +51,7 @@ button {
   color: inherit;
   background: transparent;
   text-align: inherit;
+  transition: transform 0.22s var(--motion-soft), opacity 0.22s var(--motion-soft), box-shadow 0.22s var(--motion-soft), background 0.22s var(--motion-soft);
 }
 
 svg {
@@ -359,6 +362,19 @@ p {
   min-height: 100dvh;
   position: relative;
   overflow-x: hidden;
+  transform-origin: 50% 22%;
+  animation: screenSoftIn 0.28s var(--motion-pop) both;
+}
+
+@keyframes screenSoftIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .with-tabbar {
@@ -420,6 +436,21 @@ p {
   background: var(--block);
   border-radius: 0;
   width: 100%;
+  transform-origin: 50% 50%;
+  transition: transform 0.24s var(--motion-soft), box-shadow 0.24s var(--motion-soft), border-color 0.24s var(--motion-soft);
+}
+
+.lounge-card:active,
+.metric-card:active,
+.preset-trigger:active,
+.primary:active,
+.secondary:active,
+.recommend-tail:active,
+.tabbar button:active,
+.sort-controls button:active,
+.settings-list button:active,
+.preset-list button:active {
+  transform: scale(0.985);
 }
 
 .thumb {
@@ -923,6 +954,12 @@ p {
     #ffffff;
   overflow: hidden;
   cursor: zoom-in;
+  transform-origin: 50% 50%;
+  transition: transform 0.28s var(--motion-pop), box-shadow 0.28s var(--motion-soft), border-color 0.28s var(--motion-soft);
+}
+
+.seat-plan:active {
+  transform: scale(0.992);
 }
 
 .seat-plan canvas {
@@ -1034,6 +1071,18 @@ p {
   overflow: auto;
   cursor: default;
   touch-action: pan-x pan-y pinch-zoom;
+  animation: seatPlanZoomIn 0.32s var(--motion-pop) both;
+}
+
+@keyframes seatPlanZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .seat-plan.enlarged canvas {
@@ -1378,6 +1427,7 @@ p {
   place-items: center;
   padding: 24px;
   background: rgba(12, 12, 12, 0.22);
+  animation: backdropFadeIn 0.22s ease both;
 }
 
 .modal-card {
@@ -1387,6 +1437,28 @@ p {
   gap: 14px;
   border-radius: 0;
   background: var(--bg);
+  transform-origin: 50% 46%;
+  animation: modalScaleIn 0.3s var(--motion-pop) both;
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.955) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .modal-card input {
@@ -2478,6 +2550,17 @@ body {
   .metric-section.expanded .metric-card.active .metric-icon img {
     width: 126px;
     height: 126px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
   }
 }
 
