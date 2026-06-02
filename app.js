@@ -440,15 +440,13 @@ function applyUser(user) {
 function persistCurrentUser() {
   if (!state.currentUser) return;
   const users = readUsers();
-  const user = users[state.currentUser];
-  if (user) {
-    user.profile = { ...state.profile, saved: false };
-    user.favorites = [...state.favorites];
-    user.presets = state.presets;
-    user.role = adminNicknames.includes(user.nickname) ? "admin" : user.role || "user";
-    users[state.currentUser] = user;
-    writeUsers(users);
-  }
+  const user = users[state.currentUser] || { nickname: state.currentUser, role: "user" };
+  user.profile = { ...state.profile, saved: false };
+  user.favorites = [...state.favorites];
+  user.presets = state.presets;
+  user.role = adminNicknames.includes(user.nickname) ? "admin" : user.role || "user";
+  users[state.currentUser] = user;
+  writeUsers(users);
   syncSupabaseUserData().catch(() => {});
 }
 
@@ -470,7 +468,6 @@ async function restoreSupabaseSession() {
   const user = data.session?.user;
   if (!user) return;
   await loadSupabaseUserData(user);
-  await syncSupabaseUserData().catch(() => persistLocalUserSnapshot());
   localStorage.removeItem(AUTH_GUEST_KEY);
   state.route = "home";
 }
@@ -479,23 +476,25 @@ async function loadSupabaseUserData(user) {
   const metadata = user.user_metadata || {};
   const metadataProfile = metadata.profile || {};
   const nickname = metadata.nickname || state.currentUser || "쿠룽지 친구";
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-  const { data: favorites } = await supabase.from("favorites").select("lounge_id").eq("user_id", user.id);
-  const { data: presets } = await supabase.from("presets").select("name, config").eq("user_id", user.id).order("created_at", { ascending: true });
-  const tableFavorites = favorites?.map((item) => item.lounge_id).filter(Boolean) || [];
+  const localAccount = readUsers()[nickname] || null;
+  const profileResult = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  const favoritesResult = await supabase.from("favorites").select("lounge_id").eq("user_id", user.id);
+  const presetsResult = await supabase.from("presets").select("name, config").eq("user_id", user.id).order("created_at", { ascending: true });
+  const profile = profileResult.data;
+  const tableFavorites = favoritesResult.error ? [] : favoritesResult.data?.map((item) => item.lounge_id).filter(Boolean) || [];
   const metadataFavorites = Array.isArray(metadata.favorites) ? metadata.favorites.filter(Boolean) : [];
-  const tablePresets = presets?.map((item) => ({ name: item.name, ...item.config })) || [];
+  const tablePresets = presetsResult.error ? [] : presetsResult.data?.map((item) => ({ name: item.name, ...item.config })) || [];
   const metadataPresets = Array.isArray(metadata.presets) ? metadata.presets : [];
-  const localFavorites = state.currentUser === nickname ? [...state.favorites].filter(Boolean) : [];
-  const localPresets = state.currentUser === nickname ? state.presets : [];
+  const localFavorites = localAccount?.favorites?.filter(Boolean) || (state.currentUser === nickname ? [...state.favorites].filter(Boolean) : []);
+  const localPresets = localAccount?.presets?.length ? localAccount.presets : state.currentUser === nickname ? state.presets : [];
   state.currentUser = nickname;
   state.isGuest = false;
   state.profile = {
     ...state.profile,
     name: profile?.nickname || nickname,
-    college: profile?.college || metadataProfile.college || state.profile.college,
-    department: profile?.department || metadataProfile.department || state.profile.department,
-    photo: profile?.photo || metadataProfile.photo || "",
+    college: profile?.college || metadataProfile.college || localAccount?.profile?.college || state.profile.college,
+    department: profile?.department || metadataProfile.department || localAccount?.profile?.department || state.profile.department,
+    photo: profile?.photo || localAccount?.profile?.photo || "",
     role: adminNicknames.includes(nickname) ? "admin" : "user",
     saved: false,
   };
@@ -508,22 +507,31 @@ async function syncSupabaseUserData() {
   const { data } = await supabase.auth.getUser();
   const user = data.user;
   if (!user) return;
-  await supabase.auth.updateUser({ data: accountMetadataPayload() });
-  await supabase.from("profiles").upsert({
+  persistLocalUserSnapshot();
+  await ignoreSupabaseError(supabase.auth.updateUser({ data: accountMetadataPayload() }));
+  await ignoreSupabaseError(supabase.from("profiles").upsert({
     id: user.id,
     nickname: state.profile.name,
     college: state.profile.college,
     department: state.profile.department,
     photo: state.profile.photo,
     updated_at: new Date().toISOString(),
-  });
-  await supabase.from("favorites").delete().eq("user_id", user.id);
+  }));
+  await ignoreSupabaseError(supabase.from("favorites").delete().eq("user_id", user.id));
   if (state.favorites.size) {
-    await supabase.from("favorites").insert([...state.favorites].map((loungeId) => ({ user_id: user.id, lounge_id: loungeId })));
+    await ignoreSupabaseError(supabase.from("favorites").insert([...state.favorites].map((loungeId) => ({ user_id: user.id, lounge_id: loungeId }))));
   }
-  await supabase.from("presets").delete().eq("user_id", user.id);
+  await ignoreSupabaseError(supabase.from("presets").delete().eq("user_id", user.id));
   if (state.presets.length) {
-    await supabase.from("presets").insert(state.presets.map((preset) => ({ user_id: user.id, name: preset.name, config: preset })));
+    await ignoreSupabaseError(supabase.from("presets").insert(state.presets.map((preset) => ({ user_id: user.id, name: preset.name, config: preset }))));
+  }
+}
+
+async function ignoreSupabaseError(request) {
+  try {
+    return await request;
+  } catch {
+    return null;
   }
 }
 
@@ -533,7 +541,6 @@ function accountMetadataPayload() {
     profile: {
       college: state.profile.college,
       department: state.profile.department,
-      photo: state.profile.photo || "",
       role: state.profile.role || "user",
     },
     favorites: [...state.favorites],
@@ -764,7 +771,7 @@ function render() {
   };
   if (!views[state.route]) state.route = "home";
   app.classList.toggle("motion-off-root", !state.motionEnabled);
-  app.innerHTML = `<main class="phone-shell ${state.motionEnabled ? "" : "motion-off"}">${renderAdminTimeBar()}${views[state.route]()}</main>${renderModal()}`;
+  app.innerHTML = `<main class="phone-shell ${state.motionEnabled ? "" : "motion-off"}">${views[state.route]()}</main>${renderModal()}`;
   bindEvents();
   if (state.route === "home") updateHomeSearchResults();
   alignTimePicker();
@@ -781,24 +788,6 @@ function accessBlocked() {
 
 function canAccessProject() {
   return allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser);
-}
-
-function isSimulationAdmin() {
-  return state.currentUser === "테스트2" || state.profile.name === "테스트2";
-}
-
-function renderAdminTimeBar() {
-  if (!isSimulationAdmin() || ["welcome", "guestConfirm", "signup", "login", "restricted"].includes(state.route)) return "";
-  return `
-    <div class="admin-time-bar">
-      <label>
-        <span>시간 설정</span>
-        <select data-simulation-time>
-          ${simulationTimeOptions().map((time) => `<option value="${time}" ${simulationTimeValue() === time ? "selected" : ""}>${time}</option>`).join("")}
-        </select>
-      </label>
-    </div>
-  `;
 }
 
 function renderRestricted() {
@@ -1299,6 +1288,7 @@ function buildDetails(row, infra, table) {
     ["좌석 및 테이블", table.length ? table.join(", ") : fallbackTable(row.default_type)],
     ["시설", infra.length ? infra.join(", ") : "시설 정보 없음"],
     ["조도", lightingLabel(row)],
+    ["취식 가능", flagValue(row.eat) ? "가능" : "불가능"],
     ["평균 체류시간", `${numberValue(row.usage_time, 0)}분`],
     ["운영 시간", `${row.open || "08:30"}-${row.close || "22:30"} · ${openDaysText(row)}`],
   ];
@@ -2339,7 +2329,7 @@ function weekChartItems(dayCrowd, today, relaxedDay) {
     const normalized = max === min ? 0.65 : (item.value - min) / (max - min);
     const height = 22 + normalized * 78;
     const classes = [item.day === today ? "today" : "", item.day === relaxedDay ? "relaxed" : ""].filter(Boolean).join(" ");
-    return `<div class="${classes}"><span style="height:${height}%"></span><small>${item.day}</small></div>`;
+    return `<div class="${classes}"><span class="week-bar" style="height:${height}%">${item.day === today ? `<i class="week-today-dot"></i>` : ""}</span><small>${item.day}</small></div>`;
   }).join("");
 }
 
@@ -2845,10 +2835,6 @@ function bindLoungeListEvents(root = document) {
 }
 
 function bindEvents() {
-  document.querySelector("[data-simulation-time]")?.addEventListener("change", (event) => {
-    state.simulationTime = event.currentTarget.value;
-    render();
-  });
   document.querySelector("[data-toggle-outlets]")?.addEventListener("change", (event) => {
     state.showOutlets = event.currentTarget.checked;
     render();
@@ -2898,6 +2884,8 @@ function bindEvents() {
     window.alert("브라우저 메뉴에서 공유 또는 더보기를 누른 뒤 홈 화면에 추가를 선택해주세요.");
   });
   document.querySelector("[data-logout]")?.addEventListener("click", async () => {
+    persistLocalUserSnapshot();
+    await syncSupabaseUserData().catch(() => {});
     await supabase.auth.signOut();
     localStorage.removeItem(AUTH_SESSION_KEY);
     localStorage.removeItem(AUTH_GUEST_KEY);
@@ -3395,7 +3383,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=89").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=93").catch(() => {}));
 }
 
 window.addEventListener("beforeinstallprompt", (event) => {

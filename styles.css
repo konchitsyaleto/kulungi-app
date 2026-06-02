@@ -77,39 +77,6 @@ p {
   background: var(--bg);
 }
 
-.admin-time-bar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid var(--hairline);
-  backdrop-filter: blur(14px);
-}
-
-.admin-time-bar label {
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 12px 0 16px;
-  border-radius: 999px;
-  background: var(--gray);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.admin-time-bar select {
-  min-width: 92px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--accent);
-  font-weight: 700;
-  text-align: right;
-}
-
 .seat-map-title {
   display: flex;
   align-items: center;
@@ -1190,23 +1157,26 @@ p {
   font-weight: 800;
 }
 
-.week-chart span {
+.week-chart .week-bar {
   display: block;
+  position: relative;
   width: 100%;
   border-radius: 8px;
   background: var(--gray);
 }
 
-.week-chart div.today span {
-  background: var(--accent);
-}
-
-.week-chart div.relaxed span {
-  background: var(--good);
-}
-
-.week-chart div.today.relaxed span {
-  background: linear-gradient(180deg, var(--accent), var(--good));
+.week-chart .week-today-dot {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 7px 14px rgba(12, 12, 12, 0.22), 0 0 0 4px rgba(255, 209, 102, 0.26);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 .insight {
