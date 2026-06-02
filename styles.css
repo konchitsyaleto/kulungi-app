@@ -1185,6 +1185,17 @@ p {
   line-height: 1.45;
 }
 
+.event-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.event-panel img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .info-panel dl {
   margin: 10px 0 0;
 }

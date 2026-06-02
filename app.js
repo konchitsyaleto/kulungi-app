@@ -239,6 +239,11 @@ const hardPurposeFilters = new Set([
   "은행/ATM",
   "샤워실",
 ]);
+const loungeEventImages = {
+  "10038": "./_256/event-01.png",
+  "20002": "./_256/event-02.png",
+  "10010": "./_256/event-03.png",
+};
 const buildingImages = [
   { code: 10001, src: "./buildings/10001.jpg" },
   { code: 10002, src: "./buildings/10002.jpg" },
@@ -1059,6 +1064,7 @@ function renderDetail() {
         ${renderSeatMap(lounge)}
         ${renderTrend(lounge)}
         ${renderInfoTable(lounge)}
+        ${renderLoungeEvent(lounge)}
       </div>
     </section>
   `;
@@ -2362,6 +2368,16 @@ function renderInfoTable(lounge) {
   `;
 }
 
+function renderLoungeEvent(lounge) {
+  const image = loungeEventImages[String(lounge.code || "")];
+  if (!image) return "";
+  return `
+    <section class="panel event-panel">
+      <img src="${image}" alt="" />
+    </section>
+  `;
+}
+
 function renderSearch() {
   return `
     <section class="screen search-screen">
@@ -3383,7 +3399,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=93").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=94").catch(() => {}));
 }
 
 window.addEventListener("beforeinstallprompt", (event) => {

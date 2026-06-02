@@ -3272,7 +3272,7 @@ window.LOUNGE_RAW_DATA = [
     "dark": "0",
     "individual": "0",
     "multi": "1",
-    "eat": "0",
+    "eat": "1",
     "partition": "0",
     "high_table": "1",
     "low_table": "0",
