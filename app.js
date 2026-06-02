@@ -575,8 +575,9 @@ function recommendationScoreAt(lounge, minutes) {
   const seatScore = seatAvailabilityAt(lounge, minutes).availableSeats > 0 ? 1 : 0;
   const availability = seatScore * 0.5 + congestionScore * 0.5;
   const purposeFit = purposeFitScore(lounge);
+  const adjustedPurposeFit = purposeFit ** 2;
   const distanceScore = clamp(1 - (lounge.distanceM || 0) / 1908, 0, 1);
-  return clamp(availability * 0.4 + purposeFit * 0.3 + distanceScore * 0.15 + 0.15, 0, 1);
+  return clamp(availability * 0.45 + adjustedPurposeFit * 0.4 + distanceScore * 0.15, 0, 1);
 }
 
 function purposeFitScore(lounge) {
@@ -1095,7 +1096,7 @@ function buildRecommendationByTime(row, crowdByTime, distanceM) {
     const seatScore = staticAvailability ? (staticAvailability.usable > 0 ? 1 : 0) : (isOpenAt(row, item.time) && item.value / Math.max(maxCrowdValue, 1) < 0.92 ? 1 : 0);
     const availability = seatScore * 0.5 + crowdScore * 0.5;
     const distanceScore = clamp(1 - numberValue(distanceM, 0) / 1908, 0, 1);
-    map[item.time] = clamp(availability * 0.4 + distanceScore * 0.15 + 0.15, 0, 1);
+    map[item.time] = clamp(availability * 0.45 + distanceScore * 0.15, 0, 1);
     return map;
   }, {});
 }
@@ -3170,7 +3171,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=77").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=78").catch(() => {}));
 }
 
 async function boot() {
