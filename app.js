@@ -219,6 +219,26 @@ const featureFieldMap = {
   "은행/ATM": "bank",
   "샤워실": "shower",
 };
+const hardPurposeFilters = new Set([
+  "1인석",
+  "다인석",
+  "취식 가능",
+  "칸막이",
+  "높은 테이블",
+  "낮은 테이블",
+  "딱딱한 의자",
+  "소파",
+  "누울 수 있는 자리",
+  "콘센트",
+  "프린터",
+  "정수기",
+  "도서반납기",
+  "카페",
+  "복사기",
+  "편의점",
+  "은행/ATM",
+  "샤워실",
+]);
 const buildingImages = [
   { code: 10001, src: "./buildings/10001.jpg" },
   { code: 10002, src: "./buildings/10002.jpg" },
@@ -548,7 +568,6 @@ function filteredLounges(includeSearch = true) {
   let result = lounges.map(simulateLounge);
   const query = state.loungeSearch.trim().toLowerCase();
   if (includeSearch && query) result = result.filter((lounge) => `${lounge.name} ${lounge.building}`.toLowerCase().includes(query));
-  if (state.selectedFeatures.includes("취식 가능") || state.selectedPurpose.includes("취식")) result = result.filter((lounge) => featureFlag(lounge, "취식 가능"));
   if (state.favoritesOnly) result = result.filter((lounge) => state.favorites.has(lounge.id));
   if (state.selectedCampus && !state.selectedBuildings.length) result = result.filter((lounge) => lounge.campus === state.selectedCampus);
   if (state.selectedBuildings.length) result = result.filter((lounge) => state.selectedBuildings.includes(lounge.building));
@@ -575,14 +594,15 @@ function recommendationScoreAt(lounge, minutes) {
   const seatScore = seatAvailabilityAt(lounge, minutes).availableSeats > 0 ? 1 : 0;
   const availability = seatScore * 0.5 + congestionScore * 0.5;
   const purposeFit = purposeFitScore(lounge);
-  const adjustedPurposeFit = purposeFit ** 2;
   const distanceScore = clamp(1 - (lounge.distanceM || 0) / 1908, 0, 1);
-  return clamp(availability * 0.45 + adjustedPurposeFit * 0.4 + distanceScore * 0.15, 0, 1);
+  return clamp(availability * 0.45 + purposeFit * 0.4 + distanceScore * 0.15, 0, 1);
 }
 
 function purposeFitScore(lounge) {
   const filters = selectedRecommendationFilters();
   if (!filters.length) return 1;
+  const missingHardFilter = filters.some((filter) => hardPurposeFilters.has(filter) && filterScore(lounge, filter) <= 0);
+  if (missingHardFilter) return 0;
   return clamp(filters.reduce((sum, filter) => sum + filterScore(lounge, filter), 0) / filters.length, 0, 1);
 }
 
@@ -3171,7 +3191,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=78").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=79").catch(() => {}));
 }
 
 async function boot() {
