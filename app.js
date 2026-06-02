@@ -291,6 +291,7 @@ const buildingImages = [
 const AUTH_USERS_KEY = "kulungi-users-v1";
 const AUTH_SESSION_KEY = "kulungi-session-v1";
 const AUTH_GUEST_KEY = "kulungi-guest-v1";
+const MOTION_SETTING_KEY = "kulungi-motion-enabled-v1";
 const SUPABASE_URL = "https://fdnpthvvhpfoniogmyns.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_5bVTx2uUwmkJ31x3BpY6vA_VPRgVDjA";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -309,6 +310,7 @@ const blueprintCache = {};
 const seatAvailabilityCache = {};
 let mascotAudio = null;
 let maxCrowdValue = 100;
+let deferredInstallPrompt = null;
 
 if (window.LOUNGE_RAW_DATA?.length) lounges = buildLounges(window.LOUNGE_RAW_DATA);
 const campuses = buildCampuses(lounges);
@@ -342,6 +344,7 @@ const state = {
   simulationTime: "",
   showOutlets: false,
   mascotBgmPlaying: true,
+  motionEnabled: localStorage.getItem(MOTION_SETTING_KEY) !== "false",
   profilePage: "",
   authError: "",
   authSubmitting: false,
@@ -735,7 +738,8 @@ function render() {
     profile: renderProfile,
   };
   if (!views[state.route]) state.route = "home";
-  app.innerHTML = `<main class="phone-shell">${renderAdminTimeBar()}${views[state.route]()}</main>${renderModal()}`;
+  app.classList.toggle("motion-off-root", !state.motionEnabled);
+  app.innerHTML = `<main class="phone-shell ${state.motionEnabled ? "" : "motion-off"}">${renderAdminTimeBar()}${views[state.route]()}</main>${renderModal()}`;
   bindEvents();
   if (state.route === "home") updateHomeSearchResults();
   alignTimePicker();
@@ -784,6 +788,7 @@ function renderRestricted() {
           <button class="auth-login-link" data-auth-route="signup">쿠룽지 친구 되기</button>
         </div>
       </div>
+      ${renderInstallShortcut()}
     </section>
   `;
 }
@@ -800,7 +805,17 @@ function renderWelcome() {
           <button class="auth-ghost" data-guest-start>친구는 좀 부담스러워요</button>
         </div>
       </div>
+      ${renderInstallShortcut()}
     </section>
+  `;
+}
+
+function renderInstallShortcut() {
+  return `
+    <button class="install-shortcut" data-install-app>
+      <img src="./icons/icon.png" alt="" />
+      <span>홈화면에 추가</span>
+    </button>
   `;
 }
 
@@ -2462,6 +2477,7 @@ function renderProfile() {
   const items = [
     ["profile", "프로필 관리"],
     ["notifications", "알림 설정"],
+    ["accessibility", "접근성 설정"],
     ["everytime", "에브리타임 연동", "beta"],
     ["about", "쿠룽지코 소개"],
     ["privacy", "개인정보 보호 및 설정"],
@@ -2493,6 +2509,7 @@ function renderGuestProfile() {
   const items = [
     ["profile", "프로필 관리"],
     ["notifications", "알림 설정"],
+    ["accessibility", "접근성 설정"],
     ["everytime", "에브리타임 연동", "beta"],
     ["about", "쿠룽지코 소개"],
     ["privacy", "개인정보 보호 및 설정"],
@@ -2523,6 +2540,7 @@ function renderProfileSubpage() {
   const pages = {
     profile: renderProfileEdit,
     notifications: renderNotificationSettings,
+    accessibility: renderAccessibilitySettings,
     everytime: renderEverytime,
     about: renderMascots,
     privacy: renderPrivacy,
@@ -2560,6 +2578,7 @@ function profileTitle() {
   return {
     profile: "프로필 관리",
     notifications: "알림 설정",
+    accessibility: "접근성 설정",
     everytime: "에브리타임 연동",
     about: "쿠룽지코 소개",
     privacy: "개인정보 보호 및 설정",
@@ -2605,6 +2624,20 @@ function renderNotificationSettings() {
           <i class="${state.notifications[key] ? "on" : ""}"></i>
         </button>
       `).join("")}
+    </section>
+  `;
+}
+
+function renderAccessibilitySettings() {
+  return `
+    <section class="subpage-stack">
+      <button class="toggle-row" data-toggle-motion>
+        <span>
+          <strong>부드러운 애니메이션</strong>
+          <small>확대, 축소, 모달 움직임을 사용해요.</small>
+        </span>
+        <i class="${state.motionEnabled ? "on" : ""}"></i>
+      </button>
     </section>
   `;
 }
@@ -2829,6 +2862,15 @@ function bindEvents() {
     state.currentUser = null;
     state.route = "restricted";
     render();
+  });
+  document.querySelector("[data-install-app]")?.addEventListener("click", async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice.catch(() => {});
+      deferredInstallPrompt = null;
+      return;
+    }
+    window.alert("브라우저 메뉴에서 공유 또는 더보기를 누른 뒤 홈 화면에 추가를 선택해주세요.");
   });
   document.querySelector("[data-logout]")?.addEventListener("click", async () => {
     await supabase.auth.signOut();
@@ -3208,6 +3250,11 @@ function bindEvents() {
       render();
     });
   });
+  document.querySelector("[data-toggle-motion]")?.addEventListener("click", () => {
+    state.motionEnabled = !state.motionEnabled;
+    localStorage.setItem(MOTION_SETTING_KEY, state.motionEnabled ? "true" : "false");
+    render();
+  });
 }
 
 function stepWheel(part, direction) {
@@ -3311,8 +3358,13 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=86").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=87").catch(() => {}));
 }
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+});
 
 async function boot() {
   await Promise.all([loadCollegeMajorData(), loadSeatSimulationData(), loadStaticSeatOccupancyData(), loadStaticSeatAvailabilityData()]);
