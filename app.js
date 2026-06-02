@@ -268,6 +268,7 @@ const allowedNicknames = ["비플렉스", "강소은", "다인", "주리", "테�
 let collegeMajorData = [];
 let seatSimulationData = null;
 let staticSeatOccupancyData = null;
+let staticSeatAvailabilityData = null;
 const blueprintCache = {};
 const seatAvailabilityCache = {};
 let mascotAudio = null;
@@ -531,6 +532,7 @@ function filteredLounges(includeSearch = true) {
   let result = lounges.map(simulateLounge);
   const query = state.loungeSearch.trim().toLowerCase();
   if (includeSearch && query) result = result.filter((lounge) => `${lounge.name} ${lounge.building}`.toLowerCase().includes(query));
+  if (state.selectedFeatures.includes("취식 가능") || state.selectedPurpose.includes("취식")) result = result.filter((lounge) => featureFlag(lounge, "취식 가능"));
   if (state.favoritesOnly) result = result.filter((lounge) => state.favorites.has(lounge.id));
   if (state.selectedCampus && !state.selectedBuildings.length) result = result.filter((lounge) => lounge.campus === state.selectedCampus);
   if (state.selectedBuildings.length) result = result.filter((lounge) => state.selectedBuildings.includes(lounge.building));
@@ -679,7 +681,7 @@ function accessBlocked() {
 }
 
 function canAccessProject() {
-  return allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser) || state.profile.role === "admin";
+  return allowedNicknames.includes(state.profile.name) || allowedNicknames.includes(state.currentUser);
 }
 
 function isSimulationAdmin() {
@@ -1072,7 +1074,8 @@ function arrivalMinutes(distanceM) {
 function buildRecommendationByTime(row, crowdByTime, distanceM) {
   return crowdByTime.reduce((map, item) => {
     const crowdScore = crowdScoreFromValue(item.value);
-    const seatScore = isOpenAt(row, item.time) && item.value / Math.max(maxCrowdValue, 1) < 0.92 ? 1 : 0;
+    const staticAvailability = staticSeatAvailability(row.lounge_code, item.time);
+    const seatScore = staticAvailability ? (staticAvailability.usable > 0 ? 1 : 0) : (isOpenAt(row, item.time) && item.value / Math.max(maxCrowdValue, 1) < 0.92 ? 1 : 0);
     const availability = seatScore * 0.5 + crowdScore * 0.5;
     const distanceScore = clamp(1 - numberValue(distanceM, 0) / 1908, 0, 1);
     map[item.time] = clamp(availability * 0.4 + distanceScore * 0.15 + 0.15, 0, 1);
@@ -1190,7 +1193,7 @@ function openDaysText(row) {
   const hasDayColumns = dayFields.some(([keys]) => keys.some((key) => Object.prototype.hasOwnProperty.call(row, key)));
   const labels = dayFields.filter(([keys]) => keys.some((key) => flagValue(row[key]) || boolValue(row[key]))).map(([, label]) => label);
   if (labels.length === 7) return "매일 운영";
-  if (!labels.length) return hasDayColumns ? "운영일 미정" : "매일 운영";
+  if (!labels.length) return hasDayColumns ? "운영일 미정" : "운영일 정보 없음";
   return `${labels.join(", ")} 운영`;
 }
 
@@ -1297,6 +1300,17 @@ function estimatedSeatAvailabilityByRow(row, time, crowdValue = null) {
   const minutes = typeof time === "number" ? time : timeLabelToMinutes(time);
   if (!isOpenAt(row || {}, minutes)) return { availableSeats: 0, totalSeats: 24, availableOutlets: 0, totalOutlets: flagValue(row?.charge) ? 4 : 0 };
   const timeKey = `${Math.floor(minutes / 60) % 24}:${String(minutes % 60).padStart(2, "0")}`;
+  const staticAvailability = staticSeatAvailability(row?.lounge_code, timeKey);
+  if (staticAvailability) {
+    const normalizedStatic = staticAvailability.total ? staticAvailability.occupied / staticAvailability.total : 1;
+    const outletTotalStatic = flagValue(row?.charge) ? 4 : 0;
+    return {
+      availableSeats: staticAvailability.usable,
+      totalSeats: staticAvailability.total,
+      availableOutlets: outletTotalStatic ? Math.max(0, Math.round(outletTotalStatic * (1 - normalizedStatic))) : 0,
+      totalOutlets: outletTotalStatic,
+    };
+  }
   const staticSeats = staticSeatStates(row?.lounge_code, timeKey, 24);
   const totalSeats = staticSeats.length || 24;
   const occupiedSeats = staticSeats.length ? staticSeats.filter(Boolean).length : Math.round(totalSeats * clamp((crowdValue ?? 50) / Math.max(maxCrowdValue, 1), 0, 1));
@@ -1309,6 +1323,12 @@ function estimatedSeatAvailabilityByRow(row, time, crowdValue = null) {
     availableOutlets: outletTotal ? Math.max(0, Math.round(outletTotal * (1 - normalized))) : 0,
     totalOutlets: outletTotal,
   };
+}
+
+function staticSeatAvailability(code, time) {
+  const key = normalizedPopulousKey(time);
+  const item = staticSeatAvailabilityData?.lounges?.[String(code || "").trim()]?.times?.[key];
+  return item ? { usable: numberValue(item.usable, 0), total: numberValue(item.total, 0), occupied: numberValue(item.occupied, 0) } : null;
 }
 
 function staticSeatStates(code, time, count) {
@@ -3122,12 +3142,21 @@ async function loadStaticSeatOccupancyData() {
   }
 }
 
+async function loadStaticSeatAvailabilityData() {
+  try {
+    const response = await fetch("./seat-availability-static.json");
+    staticSeatAvailabilityData = await response.json();
+  } catch {
+    staticSeatAvailabilityData = null;
+  }
+}
+
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=74").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=76").catch(() => {}));
 }
 
 async function boot() {
-  await Promise.all([loadCollegeMajorData(), loadSeatSimulationData(), loadStaticSeatOccupancyData()]);
+  await Promise.all([loadCollegeMajorData(), loadSeatSimulationData(), loadStaticSeatOccupancyData(), loadStaticSeatAvailabilityData()]);
   await restoreSupabaseSession();
   render();
 }

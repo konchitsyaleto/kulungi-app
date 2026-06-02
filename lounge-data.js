@@ -288,6 +288,7 @@ window.POPULOUS_TIME_DATA = {
   "23:50": "0.00",
   "23:55": "0.00"
 };
+
 window.LOUNGE_RAW_DATA = [
   {
     "lounge_code": "10001",
@@ -329,7 +330,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "0"
+    "distance": "0",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10002",
@@ -371,7 +381,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "0"
+    "distance": "0",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10003",
@@ -413,7 +432,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "0"
+    "distance": "0",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10004",
@@ -455,7 +483,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "37"
+    "distance": "37",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10005",
@@ -497,7 +534,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "1",
     "bank": "0",
     "shower": "0",
-    "distance": "37"
+    "distance": "37",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10006",
@@ -539,7 +585,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "37"
+    "distance": "37",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10007",
@@ -581,7 +636,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "37"
+    "distance": "37",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10008",
@@ -623,7 +687,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "37"
+    "distance": "37",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10009",
@@ -665,7 +738,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "37"
+    "distance": "37",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10010",
@@ -707,7 +789,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "1",
     "bank": "0",
     "shower": "0",
-    "distance": "258"
+    "distance": "258",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10011",
@@ -749,7 +840,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "258"
+    "distance": "258",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10012",
@@ -791,7 +891,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "1",
     "bank": "1",
     "shower": "0",
-    "distance": "222"
+    "distance": "222",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10013",
@@ -833,7 +942,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "1",
     "bank": "1",
     "shower": "0",
-    "distance": "222"
+    "distance": "222",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10014",
@@ -875,7 +993,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "1",
     "bank": "1",
     "shower": "0",
-    "distance": "222"
+    "distance": "222",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10015",
@@ -917,7 +1044,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "1",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10016",
@@ -959,7 +1095,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "1",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10017",
@@ -1001,7 +1146,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10018",
@@ -1043,7 +1197,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10019",
@@ -1085,7 +1248,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10020",
@@ -1127,7 +1299,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10021",
@@ -1169,7 +1350,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10022",
@@ -1211,7 +1401,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10023",
@@ -1253,7 +1452,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10024",
@@ -1295,7 +1503,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10025",
@@ -1337,7 +1554,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10026",
@@ -1379,7 +1605,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "423"
+    "distance": "423",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10027",
@@ -1421,7 +1656,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "820"
+    "distance": "820",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10028",
@@ -1463,7 +1707,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "820"
+    "distance": "820",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10029",
@@ -1505,7 +1758,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "820"
+    "distance": "820",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10030",
@@ -1547,7 +1809,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "607"
+    "distance": "607",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10031",
@@ -1589,7 +1860,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "640"
+    "distance": "640",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10032",
@@ -1631,7 +1911,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "862"
+    "distance": "862",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10033",
@@ -1673,7 +1962,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "862"
+    "distance": "862",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10034",
@@ -1715,7 +2013,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "862"
+    "distance": "862",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10035",
@@ -1757,7 +2064,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "862"
+    "distance": "862",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10036",
@@ -1799,7 +2115,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "727"
+    "distance": "727",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10037",
@@ -1841,7 +2166,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "431"
+    "distance": "431",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20001",
@@ -1883,7 +2217,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1285"
+    "distance": "1285",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20002",
@@ -1925,7 +2268,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "1",
-    "distance": "1310"
+    "distance": "1310",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20003",
@@ -1967,7 +2319,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1310"
+    "distance": "1310",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20004",
@@ -2009,7 +2370,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1310"
+    "distance": "1310",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20005",
@@ -2051,7 +2421,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1310"
+    "distance": "1310",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20006",
@@ -2093,7 +2472,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1448"
+    "distance": "1448",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20007",
@@ -2135,7 +2523,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1448"
+    "distance": "1448",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20008",
@@ -2177,7 +2574,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1903"
+    "distance": "1903",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20009",
@@ -2219,7 +2625,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1903"
+    "distance": "1903",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20010",
@@ -2261,7 +2676,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1903"
+    "distance": "1903",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20011",
@@ -2303,7 +2727,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1903"
+    "distance": "1903",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20012",
@@ -2345,7 +2778,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1908"
+    "distance": "1908",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20013",
@@ -2387,7 +2829,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1908"
+    "distance": "1908",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20014",
@@ -2429,7 +2880,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1908"
+    "distance": "1908",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20015",
@@ -2471,7 +2931,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "1",
     "shower": "0",
-    "distance": "1850"
+    "distance": "1850",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20016",
@@ -2513,7 +2982,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1850"
+    "distance": "1850",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20017",
@@ -2555,7 +3033,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1808"
+    "distance": "1808",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20018",
@@ -2597,7 +3084,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1681"
+    "distance": "1681",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20019",
@@ -2639,7 +3135,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1643"
+    "distance": "1643",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20020",
@@ -2681,7 +3186,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1643"
+    "distance": "1643",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "20021",
@@ -2723,7 +3237,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1643"
+    "distance": "1643",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "FALSE",
+    "sun": "FALSE"
   },
   {
     "lounge_code": "10038",
@@ -2765,7 +3288,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "1",
     "shower": "0",
-    "distance": "0"
+    "distance": "0",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10039",
@@ -2807,7 +3339,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "96"
+    "distance": "96",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "10040",
@@ -2849,7 +3390,16 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "37"
+    "distance": "37",
+    "open": "8:30",
+    "close": "22:30",
+    "mon": "TRUE",
+    "tue": "TRUE",
+    "wed": "TRUE",
+    "thu": "TRUE",
+    "fri": "TRUE",
+    "sat": "TRUE",
+    "sun": "TRUE"
   },
   {
     "lounge_code": "20022",
@@ -2891,6 +3441,15 @@ window.LOUNGE_RAW_DATA = [
     "convenience": "0",
     "bank": "0",
     "shower": "0",
-    "distance": "1555"
+    "distance": "1555",
+    "open": "",
+    "close": "",
+    "mon": "",
+    "tue": "",
+    "wed": "",
+    "thu": "",
+    "fri": "",
+    "sat": "",
+    "sun": ""
   }
 ];
