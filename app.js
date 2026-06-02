@@ -344,6 +344,7 @@ const state = {
   mascotBgmPlaying: true,
   profilePage: "",
   authError: "",
+  authSubmitting: false,
   authPasswordVisible: false,
   authDraft: {
     nickname: "",
@@ -512,6 +513,18 @@ async function syncSupabaseUserData() {
   }
 }
 
+async function resetAuthAttempt() {
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Supabase may have no active session; that is fine before a new attempt.
+    }
+  }
+}
+
 function authErrorMessage(error) {
   const message = error?.message || "";
   if (message.toLowerCase().includes("email not confirmed")) return "Supabase 이메일 확인이 켜져 있어요. Authentication 설정에서 Confirm email을 꺼주세요.";
@@ -532,10 +545,30 @@ async function finishSupabaseLogin(user, nickname) {
   localStorage.setItem(AUTH_SESSION_KEY, nickname);
   localStorage.removeItem(AUTH_GUEST_KEY);
   applyUser(localUser);
-  await loadSupabaseUserData(user);
-  await syncSupabaseUserData();
+  try {
+    await loadSupabaseUserData(user);
+  } catch {
+    state.currentUser = nickname;
+  }
+  try {
+    await syncSupabaseUserData();
+  } catch {
+    persistLocalUserSnapshot();
+  }
   state.route = "home";
   state.authError = "";
+}
+
+function persistLocalUserSnapshot() {
+  if (!state.currentUser) return;
+  const users = readUsers();
+  users[state.currentUser] = {
+    ...(users[state.currentUser] || { nickname: state.currentUser, role: "user" }),
+    profile: { ...state.profile, saved: false },
+    favorites: [...state.favorites],
+    presets: state.presets,
+  };
+  writeUsers(users);
 }
 
 function colleges() {
@@ -806,7 +839,7 @@ function renderSignup() {
         ${collegeSelectField()}
         ${majorSelectField()}
         ${state.authError ? `<p class="auth-error">${escapeHtml(state.authError)}</p>` : ""}
-        <button class="auth-primary" type="submit">친구 되기</button>
+        <button class="auth-primary" type="submit" ${state.authSubmitting ? "disabled" : ""}>${state.authSubmitting ? "처리 중" : "친구 되기"}</button>
       </form>
     </section>
   `;
@@ -824,7 +857,7 @@ function renderLogin() {
         ${authField("nickname", "닉네임")}
         ${authField("password", "비밀번호", "password")}
         ${state.authError ? `<p class="auth-error">${escapeHtml(state.authError)}</p>` : ""}
-        <button class="auth-primary" type="submit">로그인</button>
+        <button class="auth-primary" type="submit" ${state.authSubmitting ? "disabled" : ""}>${state.authSubmitting ? "확인 중" : "로그인"}</button>
       </form>
     </section>
   `;
@@ -2846,90 +2879,123 @@ function bindEvents() {
   });
   document.querySelector("[data-signup-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (state.authSubmitting) return;
     const form = new FormData(event.currentTarget);
     const nickname = form.get("nickname")?.toString().trim();
     const password = form.get("password")?.toString();
     const college = form.get("college")?.toString();
     const department = form.get("department")?.toString();
+    state.authDraft = { nickname: nickname || "", password: password || "" };
     if (!nickname || !password || !college || !department) {
       state.authError = "모든 항목을 입력해주세요.";
       render();
       return;
     }
-    const { data, error } = await supabase.auth.signUp({
-      email: nicknameToAuthEmail(nickname),
-      password,
-      options: {
-        data: { nickname },
-      },
-    });
-    if (error) {
-      state.authError = authErrorMessage(error);
-      render();
-      return;
-    }
-    if (!data.session) {
-      state.authError = "Supabase에서 로그인 세션을 만들지 못했습니다. 새로고침 후 로그인으로 다시 들어와주세요.";
-      render();
-      return;
-    }
-    state.authDraft = { nickname: "", password: "" };
-    const user = {
-      nickname,
-      passwordHash: await passwordHash(password),
-      role: adminNicknames.includes(nickname) ? "admin" : "user",
-      profile: { name: nickname, college, department, photo: state.profile.photo, saved: false, role: adminNicknames.includes(nickname) ? "admin" : "user" },
-      favorites: [...state.favorites],
-      presets: state.presets,
-    };
-    const users = readUsers();
-    users[nickname] = user;
-    writeUsers(users);
-    localStorage.setItem(AUTH_SESSION_KEY, nickname);
-    localStorage.removeItem(AUTH_GUEST_KEY);
-    applyUser(user);
-    await syncSupabaseUserData();
-    state.route = "home";
+    state.authSubmitting = true;
     state.authError = "";
     render();
+    try {
+      await resetAuthAttempt();
+      const { data, error } = await supabase.auth.signUp({
+        email: nicknameToAuthEmail(nickname),
+        password,
+        options: {
+          data: { nickname },
+        },
+      });
+      if (error) {
+        await resetAuthAttempt();
+        state.authError = authErrorMessage(error);
+        return;
+      }
+      if (!data.session) {
+        await resetAuthAttempt();
+        state.authError = "Supabase에서 로그인 세션을 만들지 못했습니다. 로그인으로 다시 들어와주세요.";
+        return;
+      }
+      state.authDraft = { nickname: "", password: "" };
+      const user = {
+        nickname,
+        passwordHash: await passwordHash(password),
+        role: adminNicknames.includes(nickname) ? "admin" : "user",
+        profile: { name: nickname, college, department, photo: state.profile.photo, saved: false, role: adminNicknames.includes(nickname) ? "admin" : "user" },
+        favorites: [...state.favorites],
+        presets: state.presets,
+      };
+      const users = readUsers();
+      users[nickname] = user;
+      writeUsers(users);
+      localStorage.setItem(AUTH_SESSION_KEY, nickname);
+      localStorage.removeItem(AUTH_GUEST_KEY);
+      applyUser(user);
+      try {
+        await syncSupabaseUserData();
+      } catch {
+        persistLocalUserSnapshot();
+      }
+      state.route = "home";
+      state.authError = "";
+    } catch (error) {
+      await resetAuthAttempt();
+      state.authError = authErrorMessage(error);
+    } finally {
+      state.authSubmitting = false;
+      render();
+    }
   });
   document.querySelector("[data-login-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (state.authSubmitting) return;
     const form = new FormData(event.currentTarget);
     const nickname = form.get("nickname")?.toString().trim();
     const password = form.get("password")?.toString();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: nicknameToAuthEmail(nickname || ""),
-      password: password || "",
-    });
-    if (error || !data.user) {
-      const localUser = readUsers()[nickname];
-      const localPasswordOk = localUser?.passwordHash === await passwordHash(password || "");
-      if (localPasswordOk) {
-        const recovered = await supabase.auth.signUp({
-          email: nicknameToAuthEmail(nickname),
-          password,
-          options: { data: { nickname } },
-        });
-        if (recovered.error || !recovered.data.session) {
-          state.authError = authErrorMessage(recovered.error) || "기존 기기 계정을 Supabase에 연결하지 못했습니다.";
-          render();
+    state.authDraft = { nickname: nickname || "", password: password || "" };
+    state.authSubmitting = true;
+    state.authError = "";
+    render();
+    try {
+      await resetAuthAttempt();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: nicknameToAuthEmail(nickname || ""),
+        password: password || "",
+      });
+      if (error || !data.user) {
+        const localUser = readUsers()[nickname];
+        const localPasswordOk = localUser?.passwordHash === await passwordHash(password || "");
+        if (localPasswordOk) {
+          const recovered = await supabase.auth.signUp({
+            email: nicknameToAuthEmail(nickname),
+            password,
+            options: { data: { nickname } },
+          });
+          if (recovered.error || !recovered.data.session) {
+            await resetAuthAttempt();
+            state.authError = authErrorMessage(recovered.error) || "기존 기기 계정을 Supabase에 연결하지 못했습니다.";
+            return;
+          }
+          applyUser(localUser);
+          try {
+            await syncSupabaseUserData();
+          } catch {
+            persistLocalUserSnapshot();
+          }
+          await finishSupabaseLogin(recovered.data.user, nickname);
+          state.authDraft = { nickname: "", password: "" };
           return;
         }
-        applyUser(localUser);
-        await syncSupabaseUserData();
-        await finishSupabaseLogin(recovered.data.user, nickname);
-        state.authDraft = { nickname: "", password: "" };
-        render();
+        await resetAuthAttempt();
+        state.authError = authErrorMessage(error);
         return;
       }
+      state.authDraft = { nickname: "", password: "" };
+      await finishSupabaseLogin(data.user, nickname);
+    } catch (error) {
+      await resetAuthAttempt();
       state.authError = authErrorMessage(error);
+    } finally {
+      state.authSubmitting = false;
       render();
-      return;
     }
-    state.authDraft = { nickname: "", password: "" };
-    await finishSupabaseLogin(data.user, nickname);
-    render();
   });
   document.querySelectorAll("[data-route]").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -3245,7 +3311,7 @@ async function loadStaticSeatAvailabilityData() {
 }
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=84").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js?v=85").catch(() => {}));
 }
 
 async function boot() {
